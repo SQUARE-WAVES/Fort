@@ -17,6 +17,12 @@ pub struct Dict {
   stk:Vec<HashMap<String,F>>
 }
 
+impl Default for Dict {
+  fn default() -> Self {
+    Self::new()
+  }
+}
+
 impl Dict {
   pub fn new() -> Self {
     let root = new_dict();
