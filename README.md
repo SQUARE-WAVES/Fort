@@ -13,10 +13,10 @@ ways as I work with it a bit.
 # how do I build it?
 just use cargo, there isn't anything special or interesting yet.
 
-# how does it work.
+# how does it work?
 for now it just runs a hardcoded string in the main function. It's still new
 
-# how about the language itsef.
+# how about the language itsef?
 so it's a "concatenative / stack-based / forth-like" language, if you don't know much about those they look weird at first
 here is a little post about why these kinds of langs are cool and fun [insert real post here](https://en.wikipedia.org/wiki/Forth_(programming_language))
 
