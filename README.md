@@ -18,7 +18,7 @@ for now it just runs a hardcoded string in the main function. It's still new
 
 # how about the language itsef.
 so it's a "concatenative / stack-based / forth-like" language, if you don't know much about those they look weird at first
-here is a little post about why these kinds of langs are cool and fun (insert real post here)[https://en.wikipedia.org/wiki/Forth_(programming_language)]
+here is a little post about why these kinds of langs are cool and fun [insert real post here](https://en.wikipedia.org/wiki/Forth_(programming_language))
 
 The language is super simple right now. There are only a few immutable types, and very basic scoping and stuff like that.
 
