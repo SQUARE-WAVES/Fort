@@ -1,5 +1,5 @@
 use logos::{Logos,Lexer};
-use crate::{V,F,Vstack,dictionary::Dict};
+use crate::{V,Vstack,dictionary::Dict};
 
 #[derive(Debug,Copy,Clone,Logos)]
 #[logos(skip r"[ \t\n\f]+")]
