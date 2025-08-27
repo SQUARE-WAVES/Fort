@@ -7,7 +7,9 @@ fn new_dict() -> HashMap<String,F> {
     ("-".into(),F::Bif(bifs::sub)),
     ("*".into(),F::Bif(bifs::mul)),
     ("/".into(),F::Bif(bifs::div)),
-    ("map".into(),F::Bif(bifs::map))
+    ("map".into(),F::Bif(bifs::map)),
+    ("call".into(),F::Bif(bifs::call)),
+    (".".into(),F::Bif(bifs::print_stack))
   ])
 }
 

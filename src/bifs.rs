@@ -53,5 +53,15 @@ pub fn map(stk:&mut Vstack) {
   stk.push(newl);
 }
 
+pub fn call(stk:&mut Vstack) {
+  let proc = stk.popf().expect("couldn't get proc to call");
+  proc.run(stk);
+}
+
+pub fn print_stack(stk:&mut Vstack) {
+  stk.print();
+  println!();
+}
+
 
 

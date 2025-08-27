@@ -49,6 +49,7 @@ impl Vstack {
     self.vs.pop()
   }
 
+  /* not using these yet
   pub fn popz(&mut self) -> Option<f64> {
     match self.vs.pop() {
       Some(V::Z(v)) => Some(v),
@@ -56,16 +57,16 @@ impl Vstack {
     }
   }
 
-  pub fn popl(&mut self) -> Option<Arc<[V]>> {
-    match self.vs.pop() {
-      Some(V::L(v)) => Some(v),
-      _ => None
-    }
-  }
-
   pub fn popi(&mut self) -> Option<i64> {
     match self.vs.pop() {
       Some(V::I(v)) => Some(v),
+      _ => None
+    }
+  }*/
+
+  pub fn popl(&mut self) -> Option<Arc<[V]>> {
+    match self.vs.pop() {
+      Some(V::L(v)) => Some(v),
       _ => None
     }
   }
