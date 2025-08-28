@@ -3,122 +3,204 @@ use crate::{
   Vstack,
   Dict,
   Token,
-  tokenize
+  tokenize,
 };
+
+
 
 #[derive(Default)]
 pub struct VM {
   vstk:Vstack,
-  pstk:Vec<ParseState>,
+  pstk:Vec<ParseSt>,
   dict:Dict
 }
 
 impl VM {
-  pub fn eval(&mut self,src:&str) {
+  pub fn eval<'a>(&mut self,src:&'a str) -> Result<(),SrcError<'a>> {
     let tks = tokenize(src);
-    for tk in tks {
-      let tk = tk.expect("bad token");
-      eat_token(tk,&mut self.vstk,&mut self.dict,&mut self.pstk);
+    for (tk,sp) in tks.spanned() {
+      let tk = tk.map_err(|_|SrcError{
+        src,
+        sp:sp.clone(),
+        etype:Error::UnknownToken
+      })?;
+
+      self.eat_token(tk).map_err(|etype|SrcError{src,sp,etype})?;
     }
+
+    Ok(())
+  }
+
+  fn eat_token(&mut self,t:Token) -> Result<(),Error> {
+    match self.pstk.last() {
+      Some(ParseSt::List(n)) => self.list_token(t,*n)?,
+      Some(ParseSt::Def(n)) => self.def_token(t,*n)?,
+      None => self.base_token(t)?,
+    }
+
+    Ok(())
+  }
+
+  fn base_token(&mut self,t:Token) -> Result<(),Error> {
+    use Token as T;
+  
+    match t {
+      T::OpenParen => {
+        self.dict.push_scope();
+        self.pstk.push(ParseSt::Def(self.vstk.len()))
+      }
+      T::OpenBracket => self.pstk.push(ParseSt::List(self.vstk.len())),
+      T::CloseParen | T::CloseDef(_)| T::CloseBracket =>{ 
+        Err(Error::CloseWithoutOpen)?
+      },
+      T::Z(v) => self.vstk.push(V::Z(v)),
+      T::I(v) => self.vstk.push(V::I(v)),
+      T::Word(nm) => {
+        let f = self.dict.get(nm).ok_or(Error::UnknownWord)?;
+        f.run(&mut self.vstk).map_err(|_|Error::BifError)?;
+      },
+      T::QWord(nm) => {
+        let f = self.dict.get(nm).ok_or(Error::UnknownWord)?;
+        self.vstk.push(V::F(f.clone()))
+      }
+    };
+
+    Ok(())
+  }
+
+  fn list_token(&mut self,t:Token,pos:usize) -> Result<(),Error> {
+    use Token as T;
+
+    match t {
+      T::OpenParen => {
+        self.dict.push_scope();
+        self.pstk.push(ParseSt::Def(self.vstk.len()))
+      },
+      
+      T::OpenBracket => self.pstk.push(ParseSt::List(self.vstk.len())),
+      
+      T::CloseBracket => {
+        let v = self.vstk.lst(pos);
+        self.vstk.push(v);
+        self.pstk.pop();
+      }
+      
+      T::CloseParen | T::CloseDef(_) => { 
+        Err(Error::CloseWithoutOpen)?
+      },
+
+      T::Z(v) => self.vstk.push(V::Z(v)),
+
+      T::I(v) => self.vstk.push(V::I(v)),
+
+      T::Word(nm) => {
+        let f = self.dict.get(nm).ok_or(Error::UnknownWord)?;
+        f.run(&mut self.vstk).map_err(|_|Error::BifError)?;
+      },
+
+      T::QWord(nm) => {
+        let f = self.dict.get(nm).ok_or(Error::UnknownWord)?;
+        self.vstk.push(V::F(f.clone()))
+      }
+    };
+
+    Ok(())
+  }
+
+  fn def_token(&mut self,t:Token,pos:usize) -> Result<(),Error> {
+    use Token as T;
+  
+    match t {
+      T::OpenParen => {
+        self.dict.push_scope();
+        self.pstk.push(ParseSt::Def(self.vstk.len()));
+      },
+
+      T::OpenBracket => self.pstk.push(ParseSt::List(self.vstk.len())),
+
+      T::CloseBracket => { 
+        Err(Error::CloseWithoutOpen)?
+      },
+
+      T::CloseParen => {
+        let v = self.vstk.def(pos);
+        self.vstk.push(V::F(v));
+        self.dict.pop_scope();
+        self.pstk.pop();
+      },
+
+      T::CloseDef(nm) => {
+        let v = self.vstk.def(pos);
+        self.dict.pop_scope();
+        self.dict.insert(nm,v);
+        self.pstk.pop();
+      },
+
+      T::Z(v) => self.vstk.push(V::Z(v)),
+
+      T::I(v) => self.vstk.push(V::I(v)),
+
+      T::Word(nm) => {
+        let f = self.dict.get(nm).ok_or(Error::UnknownWord)?;
+        self.vstk.push(V::C(f.clone()));
+      },
+
+      T::QWord(nm) => {
+        let f = self.dict.get(nm).ok_or(Error::UnknownWord)?;
+        self.vstk.push(V::F(f.clone()));
+      }
+    };
+
+    Ok(())
   }
 }
 
 #[derive(Copy,Clone,Debug)]
-pub enum ParseState {
+enum ParseSt {
   List(usize),
   Def(usize)
 }
 
-fn base_token(t:Token,stk:&mut Vstack,dict:&mut Dict,pstk:&mut Vec<ParseState>) {
-  use Token as T;
-
-  match t {
-    T::OpenParen => {
-      dict.push_scope();
-      pstk.push(ParseState::Def(stk.len()))
-    }
-    T::OpenBracket => pstk.push(ParseState::List(stk.len())),
-    T::CloseParen | T::CloseDef(_)| T::CloseBracket => panic!("close without open"),
-    T::Z(v) => stk.push(V::Z(v)),
-    T::I(v) => stk.push(V::I(v)),
-    T::Word(nm) => {
-      let f = dict.get(nm).expect("unkown word");
-      f.run(stk)
-    },
-    T::QWord(nm) => {
-      let f = dict.get(nm).expect("unknown word quoted");
-      stk.push(V::F(f.clone()))
-    }
-  };
+#[derive(Debug,Copy,Clone)]
+pub enum Error {
+  UnknownToken,
+  CloseWithoutOpen,
+  UnknownWord,
+  BifError
 }
 
-fn list_token(t:Token,stk:&mut Vstack,dict:&mut Dict,lpos:usize,pstk:&mut Vec<ParseState>) {
-  use Token as T;
-
-  match t {
-    T::OpenParen => {
-      dict.push_scope();
-      pstk.push(ParseState::Def(stk.len()))
-    },
-    T::OpenBracket => pstk.push(ParseState::List(stk.len())),
-    T::CloseBracket => {
-      let v = stk.lst(lpos);
-      stk.push(v);
-      pstk.pop();
+impl std::fmt::Display for Error {
+  fn fmt(&self,f: &mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
+    match self {
+      Self::UnknownToken => write!(f,"Unrecognized Token"),
+      Self::CloseWithoutOpen => write!(f,"Mismatched Close to a list or definition"),
+      Self::UnknownWord => write!(f,"Unrecognized Word"),
+      Self::BifError => write!(f,"an error in a function call")
     }
-    T::CloseParen | T::CloseDef(_) => panic!("close without open"),
-    T::Z(v) => stk.push(V::Z(v)),
-    T::I(v) => stk.push(V::I(v)),
-    T::Word(nm) => {
-      let f = dict.get(nm).expect("unkown word");
-      f.run(stk)
-    },
-    T::QWord(nm) => {
-      let f = dict.get(nm).expect("unknown word quoted");
-      stk.push(V::F(f.clone()))
-    }
-  };
-}
-
-fn def_token(t:Token,stk:&mut Vstack,dict:&mut Dict,lpos:usize,pstk:&mut Vec<ParseState>) {
-  use Token as T;
-
-  match t {
-    T::OpenParen => {
-      dict.push_scope();
-      pstk.push(ParseState::Def(stk.len()));
-    }
-    T::OpenBracket => pstk.push(ParseState::List(stk.len())),
-    T::CloseBracket => panic!("close without open"),
-    T::CloseParen => {
-      let v = stk.def(lpos);
-      stk.push(V::F(v));
-      dict.pop_scope();
-      pstk.pop();
-    },
-    T::CloseDef(nm) => {
-      let v = stk.def(lpos);
-      dict.pop_scope();
-      dict.insert(nm,v);
-      pstk.pop();
-    }
-    T::Z(v) => stk.push(V::Z(v)),
-    T::I(v) => stk.push(V::I(v)),
-    T::Word(nm) => {
-      let f = dict.get(nm).expect("unkown word");
-      stk.push(V::C(f.clone()));
-    },
-    T::QWord(nm) => {
-      let f = dict.get(nm).expect("unkown word");
-      stk.push(V::F(f.clone()));
-    }
-  };
-}
-
-pub fn eat_token(t:Token,stk:&mut Vstack,dict:&mut Dict,pstack:&mut Vec<ParseState>) {
-  match pstack.last() {
-    Some(ParseState::List(n)) => list_token(t,stk,dict,*n,pstack),
-    Some(ParseState::Def(n)) => def_token(t,stk,dict,*n,pstack),
-    None => base_token(t,stk,dict,pstack)
   }
 }
+
+pub struct SrcError<'a> {
+  src:&'a str,
+  sp:std::ops::Range<usize>,
+  etype:Error
+}
+
+impl<'a> std::fmt::Debug for SrcError<'a> {
+  fn fmt(&self,f: &mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
+    write!(f,"SrcError token \"{}\" type: {:?}",&self.src[self.sp.clone()],self.etype)
+  }
+}
+
+impl<'a> std::fmt::Display for SrcError<'a> {
+  fn fmt(&self,f: &mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
+    write!(f,"Error on token {} type: {}",&self.src[self.sp.clone()],self.etype)
+  }
+}
+
+impl<'a> std::error::Error for SrcError<'a> {}
+
+
+
+
+

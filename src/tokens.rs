@@ -21,9 +21,11 @@ pub enum Token<'a> {
   #[regex(r"-?\d+", |lx|lx.slice().parse().ok()) ]
   I(i64),
 
+  #[token("-")]
   #[regex(r"[^\(\)\[\]\d \t\n\f-][a-zA-Z0-9!@#$%^&*_<>|\+=]*")]
   Word(&'a str),
 
+  #[token("`-")]
   #[regex(r"`[^\(\)\[\]\d \t\n\f-][a-zA-Z0-9!@#$%^&*_<>|\+=]*", |lx| &lx.slice()[1..])]
   QWord(&'a str),
 

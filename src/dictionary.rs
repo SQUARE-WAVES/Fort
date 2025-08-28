@@ -1,18 +1,6 @@
 use std::collections::HashMap;
 use crate::{F,bifs};
 
-fn new_dict() -> HashMap<String,F> {
-  HashMap::from([
-    ("+".into(),F::Bif(bifs::add)),
-    ("-".into(),F::Bif(bifs::sub)),
-    ("*".into(),F::Bif(bifs::mul)),
-    ("/".into(),F::Bif(bifs::div)),
-    ("map".into(),F::Bif(bifs::map)),
-    ("call".into(),F::Bif(bifs::call)),
-    (".".into(),F::Bif(bifs::print_stack))
-  ])
-}
-
 pub struct Dict {
   stk:Vec<HashMap<String,F>>
 }
@@ -25,7 +13,7 @@ impl Default for Dict {
 
 impl Dict {
   pub fn new() -> Self {
-    let root = new_dict();
+    let root = bifs::root_dict();
     Self {
       stk:vec![root]
     }
