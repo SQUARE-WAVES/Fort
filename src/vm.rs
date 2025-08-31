@@ -2,33 +2,70 @@ use crate::{
   V,
   Vstack,
   Dict,
-  Token,
-  tokenize,
+  tokens,
+  tokens::Token,
+  bifs
 };
-
-
 
 #[derive(Default)]
 pub struct VM {
   vstk:Vstack,
+  dict:Dict,
+
+  //stuff for input 
   pstk:Vec<ParseSt>,
-  dict:Dict
+  st:tokens::St,
+  pos:usize
 }
 
 impl VM {
-  pub fn eval<'a>(&mut self,src:&'a str) -> Result<(),SrcError<'a>> {
-    let tks = tokenize(src);
-    for (tk,sp) in tks.spanned() {
-      let tk = tk.map_err(|_|SrcError{
-        src,
-        sp:sp.clone(),
-        etype:Error::UnknownToken
-      })?;
+  pub fn repl_buff(&mut self,buff:&mut String) -> Result<(),Error> {
+    let input = &buff[..];
+    let mut lx = tokens::Scanner::resume(input,self.pos,self.st);
+    loop {
+      let tk = match lx.eat() {
+        Ok(tk) => tk,
+        Err(tokens::Error::Done) => {
+          let(st,eaten,pos) = lx.done();
+          self.st = st;
+          self.pos = pos;
+          buff.drain(0..eaten);
+          return Ok(())
+        },
+        Err(e) => {
+          self.st = tokens::St::Base;
+          self.pos = 0;
+          buff.clear();
+          return Err(Error::Scanner(e))
+        }
+      };
 
-      self.eat_token(tk).map_err(|etype|SrcError{src,sp,etype})?;
+      match self.eat_token(tk) {
+        Ok(()) => (),
+        Err(e) => {
+          self.st = tokens::St::Base;
+          self.pos = 0;
+          buff.clear();
+          return Err(e)
+        }
+      }
+    }
+    /*
+    let mut tks : Vec<Token> = vec![];
+    let mut cb = |tk| {
+      tks.push(tk);
+    };
+
+    for c in src.chars() {
+      self.tkzer.eat(c,&mut cb).ok_or(Error::BadTok);
+    }
+
+    for tk in tks {
+      self.eat_token(tk)?;
     }
 
     Ok(())
+    */
   }
 
   fn eat_token(&mut self,t:Token) -> Result<(),Error> {
@@ -55,14 +92,17 @@ impl VM {
       },
       T::Z(v) => self.vstk.push(V::Z(v)),
       T::I(v) => self.vstk.push(V::I(v)),
+      T::True => self.vstk.push(true),
+      T::False => self.vstk.push(false),
       T::Word(nm) => {
-        let f = self.dict.get(nm).ok_or(Error::UnknownWord)?;
-        f.run(&mut self.vstk).map_err(|_|Error::BifError)?;
+        let f = self.dict.get(&nm).ok_or(Error::UnknownWord)?;
+        f.run(&mut self.vstk).map_err(Error::Bif)?;
       },
       T::QWord(nm) => {
-        let f = self.dict.get(nm).ok_or(Error::UnknownWord)?;
+        let f = self.dict.get(&nm).ok_or(Error::UnknownWord)?;
         self.vstk.push(V::F(f.clone()))
-      }
+      },
+      T::Str(s) => println!("str {s}")
     };
 
     Ok(())
@@ -89,19 +129,22 @@ impl VM {
         Err(Error::CloseWithoutOpen)?
       },
 
-      T::Z(v) => self.vstk.push(V::Z(v)),
-
-      T::I(v) => self.vstk.push(V::I(v)),
+      T::Z(v) => self.vstk.push(v),
+      T::I(v) => self.vstk.push(v),
+      T::True => self.vstk.push(true),
+      T::False => self.vstk.push(false),
 
       T::Word(nm) => {
-        let f = self.dict.get(nm).ok_or(Error::UnknownWord)?;
-        f.run(&mut self.vstk).map_err(|_|Error::BifError)?;
+        let f = self.dict.get(&nm).ok_or(Error::UnknownWord)?;
+        f.run(&mut self.vstk).map_err(Error::Bif)?;
       },
 
       T::QWord(nm) => {
-        let f = self.dict.get(nm).ok_or(Error::UnknownWord)?;
+        let f = self.dict.get(&nm).ok_or(Error::UnknownWord)?;
         self.vstk.push(V::F(f.clone()))
-      }
+      },
+
+      T::Str(s) => println!("str {s}")
     };
 
     Ok(())
@@ -132,23 +175,26 @@ impl VM {
       T::CloseDef(nm) => {
         let v = self.vstk.def(pos);
         self.dict.pop_scope();
-        self.dict.insert(nm,v);
+        self.dict.insert(&nm,v);
         self.pstk.pop();
       },
 
-      T::Z(v) => self.vstk.push(V::Z(v)),
-
-      T::I(v) => self.vstk.push(V::I(v)),
+      T::Z(v) => self.vstk.push(v),
+      T::I(v) => self.vstk.push(v),
+      T::True => self.vstk.push(true),
+      T::False => self.vstk.push(false),
 
       T::Word(nm) => {
-        let f = self.dict.get(nm).ok_or(Error::UnknownWord)?;
+        let f = self.dict.get(&nm).ok_or(Error::UnknownWord)?;
         self.vstk.push(V::C(f.clone()));
       },
 
       T::QWord(nm) => {
-        let f = self.dict.get(nm).ok_or(Error::UnknownWord)?;
+        let f = self.dict.get(&nm).ok_or(Error::UnknownWord)?;
         self.vstk.push(V::F(f.clone()));
-      }
+      },
+
+      T::Str(s) => println!("str {s}")
     };
 
     Ok(())
@@ -163,19 +209,19 @@ enum ParseSt {
 
 #[derive(Debug,Copy,Clone)]
 pub enum Error {
-  UnknownToken,
+  Scanner(tokens::Error),
   CloseWithoutOpen,
   UnknownWord,
-  BifError
+  Bif(bifs::Error)
 }
 
 impl std::fmt::Display for Error {
   fn fmt(&self,f: &mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
     match self {
-      Self::UnknownToken => write!(f,"Unrecognized Token"),
+      Self::Scanner(e) => write!(f,"error while scanning tokens {e}"),
       Self::CloseWithoutOpen => write!(f,"Mismatched Close to a list or definition"),
       Self::UnknownWord => write!(f,"Unrecognized Word"),
-      Self::BifError => write!(f,"an error in a function call")
+      Self::Bif(e) => write!(f,"error in function call {e}"),
     }
   }
 }
@@ -199,8 +245,3 @@ impl<'a> std::fmt::Display for SrcError<'a> {
 }
 
 impl<'a> std::error::Error for SrcError<'a> {}
-
-
-
-
-

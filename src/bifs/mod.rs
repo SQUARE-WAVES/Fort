@@ -1,161 +1,57 @@
+use crate::{V,F,Vstack,StackErr};
+
 mod stack;
-
-pub enum BifError{
-  Bad
-}
-
-use crate::{V,F,Vstack};
-
-pub fn add(stk:&mut Vstack) -> Result<(),BifError> {
-  let b = stk.pop().expect("stack underflow");
-  let a = stk.pop().expect("stack underflow");
-  match (b,a) {
-    (V::I(n),V::I(d)) => stk.push(V::I(n + d)),
-    (V::Z(n),V::Z(d)) => stk.push(V::Z(n + d)),
-    _ => panic!("invalid multipication types, must be int + int or z + z")
-  }
-
-  Ok(())
-}
-
-pub fn sub(stk:&mut Vstack) -> Result<(),BifError> {
-  let b = stk.pop().expect("stack underflow");
-  let a = stk.pop().expect("stack underflow");
-  match (a,b) {
-    (V::I(n),V::I(d)) => stk.push(V::I(n - d)),
-    (V::Z(n),V::Z(d)) => stk.push(V::Z(n - d)),
-    _ => panic!("invalid subtraction types, must be int - int or z - z")
-  }
-
-  Ok(())
-}
-
-pub fn mul(stk:&mut Vstack) -> Result<(),BifError> {
-  let b = stk.pop().expect("stack underflow");
-  let a = stk.pop().expect("stack underflow");
-  match (b,a) {
-    (V::I(n),V::I(d)) => stk.push(V::I(n * d)),
-    (V::Z(n),V::Z(d)) => stk.push(V::Z(n * d)),
-    _ => panic!("invalid multipication types, must be int * int or z * z")
-  }
-
-  Ok(())
-}
-
-pub fn div(stk:&mut Vstack) -> Result<(),BifError> {
-  let den = stk.pop().expect("stack underflow");
-  let num = stk.pop().expect("stack underflow");
-  match (num,den) {
-    (V::I(n),V::I(d)) => stk.push(V::I(n/d)),
-    (V::Z(n),V::Z(d)) => stk.push(V::Z(n/d)),
-    _ => panic!("invalid divison types, must be int/int or z/z")
-  }
-
-  Ok(())
-}
-
-pub fn eq(stk:&mut Vstack) -> Result<(),BifError> {
-  let a = stk.pop().expect("stack underflow");
-  let b = stk.pop().expect("stack underflow");
-  match (a,b) {
-    (V::I(n),V::I(d)) => stk.push(V::B(n == d)),
-    (V::Z(n),V::Z(d)) => stk.push(V::B(n == d)),
-    (V::B(n),V::B(d)) => stk.push(V::B(n == d)),
-    (V::L(n),V::L(d)) => stk.push(V::B(std::sync::Arc::ptr_eq(&n,&d))),
-    (V::F(n),V::F(d)) => stk.push(V::B(n==d)),
-    _ => panic!("invalid comparison types, both args must be the same type")
-  }
-
-  Ok(())
-}
-
-pub fn neq(stk:&mut Vstack) -> Result<(),BifError> {
-  let a = stk.pop().expect("stack underflow");
-  let b = stk.pop().expect("stack underflow");
-  match (a,b) {
-    (V::I(n),V::I(d)) => stk.push(V::B(n != d)),
-    (V::Z(n),V::Z(d)) => stk.push(V::B(n != d)),
-    (V::B(n),V::B(d)) => stk.push(V::B(n != d)),
-    (V::L(n),V::L(d)) => stk.push(V::B(!std::sync::Arc::ptr_eq(&n,&d))),
-    (V::F(n),V::F(d)) => stk.push(V::B(n != d)),
-    _ => panic!("invalid comparison types, both args must be the same type")
-  }
-
-  Ok(())
-}
-
-pub fn map(stk:&mut Vstack) -> Result<(),BifError> {
-  let proc = stk.popf().expect("couldn't get proc to map");
-  let lst = stk.popl().expect("coultn't get list");
-  let mut subs = Vstack::default();
-  for val in lst.iter() {
-    subs.push(val.clone());
-    proc.run(&mut subs)?;
-  };
-
-  let newl = subs.lst(0);
-  stk.push(newl);
-  Ok(())
-}
-
-pub fn call(stk:&mut Vstack) -> Result<(),BifError> {
-  let proc = stk.popf().expect("couldn't get proc to call");
-  proc.run(stk)?;
-  Ok(())
-}
-
-pub fn cond(stk:&mut Vstack) -> Result<(),BifError> {
-  let else_proc = stk.popf().expect("couldn't get proc to call");
-  let true_proc = stk.popf().expect("couldn't get proc to call");
-  let val = stk.popb().expect("couldn't get boolean value");
-
-  if val {
-    true_proc.run(stk)?;
-  }
-  else {
-    else_proc.run(stk)?;
-  }
-
-  Ok(())
-}
-
-pub fn while_loop(stk:&mut Vstack) -> Result<(),BifError> {
-  let body = stk.popf().expect("couln't find a thing to do in the loop");
-  let test = stk.popf().expect("couldn't find thing to test for the loop");
-  
-  loop {
-    let v = stk.pop().expect("couldn't dup");
-    stk.push(v.clone());
-    stk.push(v);
-    test.run(stk);
-    match stk.popb() {
-      Some(true) => body.run(stk),
-      _ => break
-    };
-  }
-
-  Ok(())
-}
-
-pub fn print_stack(stk:&mut Vstack) -> Result<(),BifError> {
-  stk.print();
-  println!();
-  Ok(())
-}
+mod math;
+mod functional;
+mod util;
 
 pub fn root_dict() -> std::collections::HashMap<String,F> {
   std::collections::HashMap::from([
     ("dup".into(),F::Bif(stack::dup)),
-    ("+".into(),F::Bif(add)),
-    ("-".into(),F::Bif(sub)),
-    ("*".into(),F::Bif(mul)),
-    ("/".into(),F::Bif(div)),
-    ("map".into(),F::Bif(map)),
-    ("call".into(),F::Bif(call)),
-    (".".into(),F::Bif(print_stack)),
-    ("==".into(),F::Bif(eq)),
-    ("!=".into(),F::Bif(neq)),
-    ("if".into(),F::Bif(cond)),
-    ("while".into(),F::Bif(while_loop))
+    ("clear".into(),F::Bif(stack::clear)),
+    ("swap".into(),F::Bif(stack::swap)),
+    ("rot".into(),F::Bif(stack::rot)),
+    ("over".into(),F::Bif(stack::over)),
+    ("drop".into(),F::Bif(stack::drop)),
+
+    ("+".into(),F::Bif(math::add)),
+    ("-".into(),F::Bif(math::sub)),
+    ("*".into(),F::Bif(math::mul)),
+    ("/".into(),F::Bif(math::div)),
+    (".".into(),F::Bif(util::print_stack)),
+    ("==".into(),F::Bif(math::eq)),
+    ("!=".into(),F::Bif(math::neq)),
+
+    ("map".into(),F::Bif(functional::map)),
+    ("call".into(),F::Bif(functional::call)),
+    
+    ("if".into(),F::Bif(functional::cond)),
+    ("while".into(),F::Bif(functional::while_loop))
   ])
+}
+
+#[derive(Debug,Copy,Clone)]
+pub enum Error {
+  Param(&'static str,StackErr)
+}
+
+impl std::fmt::Display for Error {
+  fn fmt(&self,f:&mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
+    let Error::Param(pname,root) = self;
+    write!(f,"parameter error on param:{pname}, cause:{root}")
+  }
+}
+
+impl std::error::Error for Error{}
+
+pub fn p_err(nm:&'static str) -> impl FnOnce(StackErr) -> Error {
+  move|se|Error::Param(nm,se)
+}
+
+pub fn punder(nm:&'static str) -> Error {
+  Error::Param(nm,StackErr::Underflow)
+}
+
+pub fn ptyp_err(nm:&'static str,exp:&'static str,rcv:&'static str) -> Error {
+  Error::Param(nm,StackErr::Type(exp,rcv))
 }
