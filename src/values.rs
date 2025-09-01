@@ -1,48 +1,5 @@
 use std::sync::Arc;
-
-use crate::{
-  Vstack,
-  bifs::Error as BifError
-};
-
-#[derive(Debug,Clone)]
-pub enum F {
-  Bif(fn(&mut Vstack) -> Result<(),BifError>),
-  Def(Arc<[V]>)
-}
-
-impl PartialEq for F {
-  fn eq(&self,other:&F) -> bool {
-    match (self,other) {
-      (Self::Bif(n), Self::Bif(m)) => std::ptr::fn_addr_eq(*n,*m),
-      (Self::Def(a), Self::Def(b)) => Arc::ptr_eq(a,b),
-      _ => false
-    }
-  }
-}
-
-impl F {
-  pub fn run(&self,vs:&mut Vstack) -> Result<(),BifError> {
-    match self {
-      Self::Bif(f) => f(vs),
-
-      Self::Def(arc) => {
-        for v in arc.iter() {
-          match v {
-            V::C(f) => {
-              f.run(vs)?;
-            }
-            x => {
-              vs.push(x.clone())
-            }
-          };
-        }
-
-        Ok(())
-      }
-    }
-  }
-}
+use crate::functions::F;
 
 #[derive(Debug,Clone,PartialEq)]
 pub enum V {
@@ -52,6 +9,8 @@ pub enum V {
   F(F),
   C(F),
   B(bool),
+  Str(Arc<str>)
+  //Sym(Arc<str>),
 }
 
 impl V {
@@ -63,6 +22,8 @@ impl V {
       V::F(_) => "function",
       V::C(_) => "function call",
       V::B(_) => "bool",
+      V::Str(_) => "string"
+      //V::Sym(_) => "symbol"
     }
   }
 }
@@ -95,10 +56,12 @@ impl std::fmt::Display for V {
 
       Self::I(n) => write!(f,"{n}"),
 
-      Self::F(_) => write!(f,"fn"),
+      Self::F(func) => write!(f,"{func}"),
+      Self::C(func) => write!(f,"{func}"),
 
-      Self::C(_) => write!(f,"thnk"),
       Self::B(n) => write!(f,"{n}"),
+      Self::Str(n) => write!(f,r#""{n}""#),
+      //Self::Sym(n) => write!(f,"Sym[[ {n} ]]"),
     }
   }
 }

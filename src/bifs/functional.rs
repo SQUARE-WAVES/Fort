@@ -29,6 +29,8 @@ pub fn call(stk:&mut Vstack) -> Result<(),Error> {
   Ok(())
 }
 
+
+//the "if" function
 pub fn cond(stk:&mut Vstack) -> Result<(),Error> {
   let else_proc = stk.tpop::<F>().map_err(p_err("else_proc"))?;
   let true_proc = stk.tpop::<F>().map_err(p_err("true_proc"))?;

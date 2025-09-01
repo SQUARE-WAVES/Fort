@@ -10,7 +10,10 @@ pub enum Token<'a> {
   QWord(&'a str),
   I(i64),
   Z(f64),
-  Str(&'a str)
+  Str(&'a str),
+  Print,
+
+  //SymWord(&'a str),
 }
 
 #[derive(Default,Debug,PartialEq,Clone,Copy)]
@@ -106,6 +109,10 @@ impl<'a> Scanner<'a> {
       ']' => { 
         self.step(c);
         Ok(self.complete(Token::CloseBracket))
+      },
+      '.' => {
+        self.step(c);
+        Ok(self.complete(Token::Print))
       },
       '-' => self.advance(c,St::Minus),
       '"' => self.advance(c,St::Str),

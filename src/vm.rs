@@ -1,247 +1,211 @@
+use std::sync::Arc;
+
 use crate::{
-  V,
+  V,F,
   Vstack,
   Dict,
-  tokens,
-  tokens::Token,
-  bifs
+  tokens::Token as T
 };
+
+#[derive(Debug)]
+pub enum Mode {
+  List(Vstack),
+  Def(Vstack),
+}
+
+impl Default for Mode {
+  fn default() -> Self {
+    Self::list()
+  }
+}
+
+impl Mode {
+  pub fn def() -> Self {
+    Self::Def(Default::default())
+  }
+
+  pub fn list() -> Self {
+    Self::List(Default::default())
+  }
+
+  pub fn vs(&mut self) -> &mut Vstack {
+    match self {
+      Self::List(stk) => stk,
+      Self::Def(stk) => stk
+    }
+  }
+
+  pub fn push_value(&mut self,val:V) {
+    self.vs().push(val)
+  }
+}
+
+impl std::fmt::Display for Mode {
+  fn fmt(&self,f: &mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
+    match self {
+      Self::List(vs) => write!(f,"[{vs}"),
+      Self::Def(vs) => write!(f,"({vs}")
+    }
+  }
+}
 
 #[derive(Default)]
 pub struct VM {
-  vstk:Vstack,
-  dict:Dict,
-
-  //stuff for input 
-  pstk:Vec<ParseSt>,
-  st:tokens::St,
-  pos:usize
+  root:Mode,
+  mode_stack:Vec<Mode>,
+  dict:Dict
 }
 
 impl VM {
-  pub fn repl_buff(&mut self,buff:&mut String) -> Result<(),Error> {
-    let input = &buff[..];
-    let mut lx = tokens::Scanner::resume(input,self.pos,self.st);
-    loop {
-      let tk = match lx.eat() {
-        Ok(tk) => tk,
-        Err(tokens::Error::Done) => {
-          let(st,eaten,pos) = lx.done();
-          self.st = st;
-          self.pos = pos;
-          buff.drain(0..eaten);
-          return Ok(())
-        },
-        Err(e) => {
-          self.st = tokens::St::Base;
-          self.pos = 0;
-          buff.clear();
-          return Err(Error::Scanner(e))
-        }
-      };
+  pub fn drop_modes(&mut self) {
+    self.mode_stack.clear()
+  }
 
-      match self.eat_token(tk) {
-        Ok(()) => (),
-        Err(e) => {
-          self.st = tokens::St::Base;
-          self.pos = 0;
-          buff.clear();
-          return Err(e)
-        }
+  //basic debug printing type stuff
+  pub fn print(&mut self) {
+    if self.root.vs().is_empty() && self.mode_stack.is_empty() {
+      println!("-=EMPTY=-");
+    }
+    else {
+      print!("-= {} ",self.root.vs());
+      for md in self.mode_stack.iter() {
+        print!("{md}");
       }
+      println!("=-");
     }
-    /*
-    let mut tks : Vec<Token> = vec![];
-    let mut cb = |tk| {
-      tks.push(tk);
-    };
+  }
 
-    for c in src.chars() {
-      self.tkzer.eat(c,&mut cb).ok_or(Error::BadTok);
+  fn mode(&mut self) -> &mut Mode {
+    self.mode_stack.last_mut().unwrap_or(&mut self.root)
+  }
+
+  fn push_def(&mut self) { 
+    self.mode_stack.push(Mode::def());
+    self.dict.push_scope();
+  }
+
+  fn push_list(&mut self) { self.mode_stack.push(Mode::list()) }
+
+  pub fn push_value(&mut self,val:V) {
+    self.mode().push_value(val)
+  }
+
+  fn push_call(&mut self,call:F) -> Result<(),Error> {
+    let md = self.mode();
+    match md {
+      Mode::Def(vs) => {
+        vs.push(V::C(call));
+        Ok(())
+      },
+      Mode::List(vs) => call.run(vs).map_err(|_|Error::Bad(1)),
     }
+  }
 
-    for tk in tks {
-      self.eat_token(tk)?;
+  fn push_quote(&mut self,qw:&str) -> Result<(),Error> {
+    let q = self.dict.get(qw).map_err(|_|Error::Bad(3))?;
+    self.push_value(V::F(q.clone()));
+    Ok(())
+  }
+
+  fn push_word(&mut self,nm:&str) -> Result<(),Error> {
+    let q = self.dict.get(nm).map_err(|_|Error::Bad(3))?;
+    self.push_call(q.clone())?;
+    Ok(())
+  }
+
+  fn end_list(&mut self) -> Result<(),Error> {
+    match self.mode_stack.pop() {
+      Some(Mode::List(vs)) => {
+        self.push_value(V::L(vs.into()));
+        Ok(())
+      },
+      Some(Mode::Def(_)) => {
+        self.drop_modes();
+        Err(Error::Bad(10))
+      },
+      None => Err(Error::Bad(11))
+    }
+  }
+
+  fn end_def<T1:Into<Option<Arc<str>>>>(&mut self,nm:T1) -> Result<(),Error> {
+    let vs = match self.mode_stack.pop() {
+      Some(Mode::Def(stk)) => Ok(stk),
+      _ => Err(Error::Bad(20))
+    }?;
+
+    self.dict.pop_scope();
+
+    let f = self.dict.define(vs.into(),nm);
+    if matches!(f,F::Anon(_)) {
+      self.push_value(V::F(f))
     }
 
     Ok(())
-    */
   }
 
-  fn eat_token(&mut self,t:Token) -> Result<(),Error> {
-    match self.pstk.last() {
-      Some(ParseSt::List(n)) => self.list_token(t,*n)?,
-      Some(ParseSt::Def(n)) => self.def_token(t,*n)?,
-      None => self.base_token(t)?,
-    }
-
-    Ok(())
-  }
-
-  fn base_token(&mut self,t:Token) -> Result<(),Error> {
-    use Token as T;
-  
-    match t {
+  pub fn push_token(&mut self,tok:T) -> Result<(),Error> {
+    let res = match tok {
       T::OpenParen => {
-        self.dict.push_scope();
-        self.pstk.push(ParseSt::Def(self.vstk.len()))
-      }
-      T::OpenBracket => self.pstk.push(ParseSt::List(self.vstk.len())),
-      T::CloseParen | T::CloseDef(_)| T::CloseBracket =>{ 
-        Err(Error::CloseWithoutOpen)?
-      },
-      T::Z(v) => self.vstk.push(V::Z(v)),
-      T::I(v) => self.vstk.push(V::I(v)),
-      T::True => self.vstk.push(true),
-      T::False => self.vstk.push(false),
-      T::Word(nm) => {
-        let f = self.dict.get(&nm).ok_or(Error::UnknownWord)?;
-        f.run(&mut self.vstk).map_err(Error::Bif)?;
-      },
-      T::QWord(nm) => {
-        let f = self.dict.get(&nm).ok_or(Error::UnknownWord)?;
-        self.vstk.push(V::F(f.clone()))
-      },
-      T::Str(s) => println!("str {s}")
-    };
-
-    Ok(())
-  }
-
-  fn list_token(&mut self,t:Token,pos:usize) -> Result<(),Error> {
-    use Token as T;
-
-    match t {
-      T::OpenParen => {
-        self.dict.push_scope();
-        self.pstk.push(ParseSt::Def(self.vstk.len()))
+        self.push_def();
+        Ok(())
       },
       
-      T::OpenBracket => self.pstk.push(ParseSt::List(self.vstk.len())),
-      
-      T::CloseBracket => {
-        let v = self.vstk.lst(pos);
-        self.vstk.push(v);
-        self.pstk.pop();
+      T::CloseParen => self.end_def(None),
+      T::CloseDef(nm) => self.end_def::<Arc<str>>(nm.into()),
+
+      T::OpenBracket => {
+        self.push_list();
+        Ok(())
+      },
+      T::CloseBracket => self.end_list(),
+
+      T::True => { 
+        self.push_value(V::B(true));
+        Ok(())
+      },
+      T::False => {
+        self.push_value(V::B(false)); 
+        Ok(())
+      },
+      T::I(i) =>{ 
+        self.push_value(V::I(i)); 
+        Ok(())
+      },
+      T::Z(z) =>{ 
+        self.push_value(V::Z(z));
+        Ok(())
+      },
+      T::Str(s) => {
+        self.push_value(V::Str(s.into()));
+        Ok(())
       }
-      
-      T::CloseParen | T::CloseDef(_) => { 
-        Err(Error::CloseWithoutOpen)?
-      },
 
-      T::Z(v) => self.vstk.push(v),
-      T::I(v) => self.vstk.push(v),
-      T::True => self.vstk.push(true),
-      T::False => self.vstk.push(false),
-
-      T::Word(nm) => {
-        let f = self.dict.get(&nm).ok_or(Error::UnknownWord)?;
-        f.run(&mut self.vstk).map_err(Error::Bif)?;
-      },
-
-      T::QWord(nm) => {
-        let f = self.dict.get(&nm).ok_or(Error::UnknownWord)?;
-        self.vstk.push(V::F(f.clone()))
-      },
-
-      T::Str(s) => println!("str {s}")
+      T::Word(nm) => self.push_word(nm),
+      T::QWord(nm) => self.push_quote(nm),
+      T::Print => {
+        self.print();
+        Ok(())
+      }
     };
 
-    Ok(())
-  }
+    if res.is_err() {
+      self.drop_modes();
+    }
 
-  fn def_token(&mut self,t:Token,pos:usize) -> Result<(),Error> {
-    use Token as T;
-  
-    match t {
-      T::OpenParen => {
-        self.dict.push_scope();
-        self.pstk.push(ParseSt::Def(self.vstk.len()));
-      },
-
-      T::OpenBracket => self.pstk.push(ParseSt::List(self.vstk.len())),
-
-      T::CloseBracket => { 
-        Err(Error::CloseWithoutOpen)?
-      },
-
-      T::CloseParen => {
-        let v = self.vstk.def(pos);
-        self.vstk.push(V::F(v));
-        self.dict.pop_scope();
-        self.pstk.pop();
-      },
-
-      T::CloseDef(nm) => {
-        let v = self.vstk.def(pos);
-        self.dict.pop_scope();
-        self.dict.insert(&nm,v);
-        self.pstk.pop();
-      },
-
-      T::Z(v) => self.vstk.push(v),
-      T::I(v) => self.vstk.push(v),
-      T::True => self.vstk.push(true),
-      T::False => self.vstk.push(false),
-
-      T::Word(nm) => {
-        let f = self.dict.get(&nm).ok_or(Error::UnknownWord)?;
-        self.vstk.push(V::C(f.clone()));
-      },
-
-      T::QWord(nm) => {
-        let f = self.dict.get(&nm).ok_or(Error::UnknownWord)?;
-        self.vstk.push(V::F(f.clone()));
-      },
-
-      T::Str(s) => println!("str {s}")
-    };
-
-    Ok(())
+    res
   }
 }
 
-#[derive(Copy,Clone,Debug)]
-enum ParseSt {
-  List(usize),
-  Def(usize)
-}
-
-#[derive(Debug,Copy,Clone)]
+#[derive(Clone,Copy,Debug)]
 pub enum Error {
-  Scanner(tokens::Error),
-  CloseWithoutOpen,
-  UnknownWord,
-  Bif(bifs::Error)
+  Bad(usize)
 }
 
 impl std::fmt::Display for Error {
   fn fmt(&self,f: &mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
     match self {
-      Self::Scanner(e) => write!(f,"error while scanning tokens {e}"),
-      Self::CloseWithoutOpen => write!(f,"Mismatched Close to a list or definition"),
-      Self::UnknownWord => write!(f,"Unrecognized Word"),
-      Self::Bif(e) => write!(f,"error in function call {e}"),
+      Self::Bad(u) => write!(f,"VM TEMPORARY ERR CODE {u}")
     }
   }
 }
 
-pub struct SrcError<'a> {
-  src:&'a str,
-  sp:std::ops::Range<usize>,
-  etype:Error
-}
-
-impl<'a> std::fmt::Debug for SrcError<'a> {
-  fn fmt(&self,f: &mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
-    write!(f,"SrcError token \"{}\" type: {:?}",&self.src[self.sp.clone()],self.etype)
-  }
-}
-
-impl<'a> std::fmt::Display for SrcError<'a> {
-  fn fmt(&self,f: &mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
-    write!(f,"Error on token {} type: {}",&self.src[self.sp.clone()],self.etype)
-  }
-}
-
-impl<'a> std::error::Error for SrcError<'a> {}

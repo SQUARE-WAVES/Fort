@@ -1,6 +1,7 @@
-use crate::{V,F,VType};
+use std::sync::Arc;
+use crate::{V,VType};
 
-#[derive(Default)]
+#[derive(Default,Debug)]
 pub struct Vstack {
   vs:Vec<V>
 }
@@ -49,22 +50,29 @@ impl Vstack {
     V::L(list_vec.into())
   }
 
-  pub fn def(&mut self,start:usize) -> F {
+  pub fn def(&mut self,start:usize) -> Arc<[V]> {
     let list_vec : Vec<V> = self.vs.drain(start..).collect();
-    F::Def(list_vec.into())
+    list_vec.into()
   }
  
-  pub fn print(&self) {
-    if self.vs.is_empty() {
-      print!("-=Empty=-");
-      return;
+  pub fn is_empty(&self) -> bool {
+    self.vs.is_empty()
+  }
+}
+
+impl Into<Arc<[V]>> for Vstack {
+  fn into(self) -> Arc<[V]> {
+    self.vs.into()
+  }
+}
+
+impl std::fmt::Display for Vstack {
+  fn fmt(&self,f:&mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
+    for v in self.vs.iter() {
+      write!(f," {v} ")?;
     }
 
-    print!("-=");
-    for v in self.vs.iter() {
-      print!(" {v} ");
-    }
-    print!("=-");
+    Ok(())
   }
 }
 
