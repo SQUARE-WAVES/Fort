@@ -1,80 +1,43 @@
 use std::sync::Arc;
+use crate::{V,VType};
 
-#[derive(Debug,Clone)]
-pub enum F {
-  Bif(fn(&mut Vstack)),
-  Def(Arc<[V]>)
-}
-
-impl F {
-  pub fn run(&self,vs:&mut Vstack) {
-    match self {
-      Self::Bif(f) => f(vs),
-      Self::Def(arc) => {
-        for v in arc.iter() {
-          match v {
-            V::C(f) => {
-              f.run(vs)
-            }
-            x => {
-              vs.push(x.clone())
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-#[derive(Debug,Clone)]
-pub enum V {
-  Z(f64),
-  L(Arc<[V]>),
-  I(i64),
-  F(F),
-  C(F),
-}
-
-#[derive(Default)]
+#[derive(Default,Debug)]
 pub struct Vstack {
   vs:Vec<V>
 }
 
 impl Vstack {
-  pub fn push(&mut self,val:V) {
-    self.vs.push(val);
+  pub fn push<T:Into<V>>(&mut self,val:T) {
+    self.vs.push(val.into());
   }
 
-  pub fn pop(&mut self) -> Option<V> {
-    self.vs.pop()
+  pub fn pop(&mut self) -> Result<V,StackErr> {
+    self.vs.pop().ok_or(StackErr::Underflow)
   }
 
-  /* not using these yet
-  pub fn popz(&mut self) -> Option<f64> {
-    match self.vs.pop() {
-      Some(V::Z(v)) => Some(v),
-      _ => None
-    }
+  pub fn peek(&self,n:usize) -> &[V] {
+    let start = self.vs.len().saturating_sub(n);
+    &self.vs[start..]
   }
 
-  pub fn popi(&mut self) -> Option<i64> {
-    match self.vs.pop() {
-      Some(V::I(v)) => Some(v),
-      _ => None
-    }
-  }*/
-
-  pub fn popl(&mut self) -> Option<Arc<[V]>> {
-    match self.vs.pop() {
-      Some(V::L(v)) => Some(v),
-      _ => None
-    }
+  pub fn dropn(&mut self,n:usize) {
+    let start = self.vs.len().saturating_sub(n);
+    self.vs.drain(start..);
   }
 
-  pub fn popf(&mut self) -> Option<F> {
-    match self.vs.pop() {
-      Some(V::F(f)) => Some(f),
-      _ => None
+  pub fn clear(&mut self) {
+    self.vs.clear();
+  }
+
+  pub fn tpop<T:VType>(&mut self) -> Result<T,StackErr> {
+    let v = self.vs.pop().ok_or(StackErr::Underflow)?;
+    match v.try_into() {
+      Ok(n) => Ok(n),
+      Err(v) => {
+        let err = StackErr::Type(T::type_tag(),v.type_tag());
+        self.vs.push(v);
+        Err(err)
+      }
     }
   }
 
@@ -87,12 +50,45 @@ impl Vstack {
     V::L(list_vec.into())
   }
 
-  pub fn def(&mut self,start:usize) -> F {
+  pub fn def(&mut self,start:usize) -> Arc<[V]> {
     let list_vec : Vec<V> = self.vs.drain(start..).collect();
-    F::Def(list_vec.into())
+    list_vec.into()
   }
-
-  pub fn print(&self) {
-    println!("{:?}",self.vs);
+ 
+  pub fn is_empty(&self) -> bool {
+    self.vs.is_empty()
   }
 }
+
+impl Into<Arc<[V]>> for Vstack {
+  fn into(self) -> Arc<[V]> {
+    self.vs.into()
+  }
+}
+
+impl std::fmt::Display for Vstack {
+  fn fmt(&self,f:&mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
+    for v in self.vs.iter() {
+      write!(f," {v} ")?;
+    }
+
+    Ok(())
+  }
+}
+
+#[derive(Debug,Copy,Clone)]
+pub enum StackErr {
+  Underflow,
+  Type(&'static str,&'static str)
+}
+
+impl std::fmt::Display for StackErr {
+  fn fmt(&self,f:&mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
+    match self {
+      Self::Underflow => write!(f,"stack underflow"),
+      Self::Type(exp,rcv) => write!(f,"incorrect type, expected: {exp}, got: {rcv}")
+    }
+  }
+}
+
+impl std::error::Error for StackErr{}

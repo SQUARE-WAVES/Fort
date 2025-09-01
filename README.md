@@ -18,7 +18,8 @@ for now it just runs a hardcoded string in the main function. It's still new
 
 # how about the language itsef?
 so it's a "concatenative / stack-based / forth-like" language, if you don't know much about those they look weird at first
-here is a little post about why these kinds of langs are cool and fun [insert real post here](https://en.wikipedia.org/wiki/Forth_(programming_language))
+I think these kinds of langs are cool and fun: [this will be a post or something explaining why at some point](https://en.wikipedia.org/wiki/Forth_(programming_language))
+and I think they help teach a lot of concepts in a simple way.
 
 The language is super simple right now. There are only a few immutable types, and very basic scoping and stuff like that.
 
@@ -37,16 +38,21 @@ on the stack can be called with the built in function "call" so 1 (1 +) call, wo
 functions have scopes, meaning you can define stuff inside a function, and then that definition won't carry outside. This isn't
 that useful right now, as there isn't a great way to refer to the args inside a function definition.
 
-# what's there to work on?
-oh boy lots of stuff, right now I need to flesh out the built-in-functions and maybe mess with the syntax a bit.
-I want to add lazy lists and figure out how to handle closures and higher-order functions. 
+# what are the long term goals?
+Mostly to have fun! The computer is for fun! Serious business? BOO!
+But I think I'd like to make this into a sorta toolkit, for embedding into other projects, just to have a simple way of making
+interactive stuff.
 
-In the long run I'm probably mostly gonna look at making this sorta like a "forth toolkit" where it's less concerned with being a heavily featured language
-on its own, but rather a thing that's easy to grab and hack a little to embed in a project and add a repl. Kinda like lua. I also might
-play with the data structures to make it more embedded friendly. I'm not really sure.
+# what's there to work on in the short term?
+oh boy lots of stuff:
 
-right now, for example the dictionary is just a vector of hashmaps of strings. Meaning every time you define a function there is a bunch of memory allocation,
-as well, if I mess up how scopes get pushed and popped it's possible to just drop the root scope.
+right now the regular stack printing can't really handle function names, the BIFs don't store their names in an accessable way
+and neither do defs, also it's probably good to come up with a better way to print anonymous functions.
 
-Also, when you make a list or function, the system just pushes values onto the regular stack until you get to the end, then it copies that stuff into a new vector
-and saves a refcounted pointer to that data. It feels like a suboptimal way to go about it.
+it would also be good to be able to get help text and stuff like that for functions.
+
+I'd like to come up with some good utilites for extracting args for BIFs, because BIFs just get the whole stack to mess with
+however they like, they can do screwy things, like pop off a bunch of args and then fail without returning those args.
+Since in the long term I want to make this embeddable users are gonna need to be able to add new BIFs and things like that.
+
+Because of all the messing around with BIF stuff the error handling is kind of a mess, I need to clean it up
