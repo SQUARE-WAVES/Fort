@@ -5,27 +5,30 @@ use std::{
 
 use crate::{
   F,
-  V,
+  V,ExtType,
   bifs
 };
 
-#[derive(Default)]
-pub struct Scope {
-  words:HashMap<Arc<str>,F>
+pub struct Scope<Ext:ExtType> {
+  words:HashMap<Arc<str>,F<Ext>>
 }
 
-impl From<HashMap<Arc<str>,F>> for Scope {
-  fn from(words:HashMap<Arc<str>,F>) -> Self {
+impl<Ext:ExtType> From<HashMap<Arc<str>,F<Ext>>> for Scope<Ext> {
+  fn from(words:HashMap<Arc<str>,F<Ext>>) -> Self {
     Self{words}
   }
 }
 
-impl Scope {
-  pub fn get(&self,key:&str) -> Option<&F> {
+impl<Ext:ExtType> Scope<Ext> {
+  pub fn new() -> Self {
+    Self {words:Default::default()}
+  }
+
+  pub fn get(&self,key:&str) -> Option<&F<Ext>> {
     self.words.get(key)
   }
 
-  pub fn define<T1>(&mut self,vs:Arc<[V]>,name:T1) -> F
+  pub fn define<T1>(&mut self,vs:Arc<[V<Ext>]>,name:T1) -> F<Ext>
   where
     T1:Into<Option<Arc<str>>>,
   {
@@ -40,20 +43,14 @@ impl Scope {
   }
 }
 
-pub struct Dict {
-  root:Scope,
-  stk:Vec<Scope>
+pub struct Dict<Ext:ExtType> {
+  root:Scope<Ext>,
+  stk:Vec<Scope<Ext>>
 }
 
-impl Default for Dict {
-  fn default() -> Self {
-    Self::new()
-  }
-}
-
-impl Dict {
+impl<Ext:ExtType> Dict<Ext> {
   pub fn new() -> Self {
-    let root :Scope = bifs::root_dict().into();
+    let root :Scope<Ext> = bifs::root_dict().into();
     Self {
       root,
       stk:vec![]
@@ -61,7 +58,7 @@ impl Dict {
   }
 
   pub fn push_scope(&mut self) {
-    self.stk.push(Scope::default())
+    self.stk.push(Scope::<Ext>::new())
   }
 
   pub fn pop_scope(&mut self) {
@@ -70,7 +67,7 @@ impl Dict {
     }
   }
 
-  pub fn get(&self,key:&str) -> Result<&F,Error> {
+  pub fn get(&self,key:&str) -> Result<&F<Ext>,Error> {
     for scope in self.stk.iter().rev() {
       if let Some(f) = scope.get(key) { 
         return Ok(f) 
@@ -80,7 +77,7 @@ impl Dict {
     self.root.get(key).ok_or(Error::UnknownWord)
   }
 
-  pub fn define<T1>(&mut self,vs:Arc<[V]>,name:T1) -> F
+  pub fn define<T1>(&mut self,vs:Arc<[V<Ext>]>,name:T1) -> F<Ext>
   where
     T1:Into<Option<Arc<str>>>
   {

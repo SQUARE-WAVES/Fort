@@ -21,7 +21,7 @@ fn main() -> Result<(),Box<dyn std::error::Error>> {
 fn run_repl() -> Result<(),Box<dyn std::error::Error>> {
   let mut buff = String::new();
   let stdin = std::io::stdin();
-  let mut dict = Dict::default();
+  let mut dict = Dict::<u8>::new();
   let mut repl = parser::Repl::default();
   let mut vm = Thread::as_list(&mut dict);
 
@@ -36,4 +36,9 @@ fn run_repl() -> Result<(),Box<dyn std::error::Error>> {
       Err(e) => println!("err {e}")
     };
   }
+}
+
+impl ExtType for u8 {}
+impl TypeTag for u8 {
+  fn tag(&self) -> &'static str { "byte" }
 }

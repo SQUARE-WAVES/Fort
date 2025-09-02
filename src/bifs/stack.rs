@@ -1,10 +1,11 @@
 use super::{
   Thread,
+  ExtType,
   Error,
   param
 };
 
-pub fn dup(th:&mut Thread) -> Result<(),Error> {
+pub fn dup<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   let stk = th.stk();
   let v = param(stk,"a")?;
   stk.push(v.clone());
@@ -12,7 +13,7 @@ pub fn dup(th:&mut Thread) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn over(th:&mut Thread) -> Result<(),Error> {
+pub fn over<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   let stk = th.stk();
   let b = param(stk,"b")?;
   let a = param(stk,"a")?;
@@ -23,7 +24,7 @@ pub fn over(th:&mut Thread) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn swap(th:&mut Thread) -> Result<(),Error> {
+pub fn swap<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   let stk = th.stk();
   let b = param(stk,"b")?;
   let a = param(stk,"a")?;
@@ -32,7 +33,7 @@ pub fn swap(th:&mut Thread) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn rot(th:&mut Thread) -> Result<(),Error> {
+pub fn rot<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   let stk = th.stk();
   let c = param(stk,"c")?;
   let b = param(stk,"b")?;
@@ -43,13 +44,13 @@ pub fn rot(th:&mut Thread) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn drop(th:&mut Thread) -> Result<(),Error> {
+pub fn drop<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   let stk = th.stk();
   let _ = stk.popv();
   Ok(())
 }
 
-pub fn clear(th:&mut Thread) -> Result<(),Error> {
+pub fn clear<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   th.stk().clear();
   Ok(())
 }

@@ -1,16 +1,16 @@
 use std::sync::Arc;
 use super::{
-  V,
+  V,ExtType,
   F,
   Thread,
   Error,
   tpop
 };
 
-pub fn map(th:&mut Thread) -> Result<(),Error> {
+pub fn map<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   let stk = th.stk();
-  let proc = tpop::<F>(stk,"proc")?;
-  let lst = tpop::<Arc<[V]>>(stk,"list")?;
+  let proc : F<E> = tpop(stk,"proc")?;
+  let lst : Arc<[V<E>]> = tpop(stk,"list")?;
   
   th.start_list();
 
@@ -24,19 +24,19 @@ pub fn map(th:&mut Thread) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn call(th:&mut Thread) -> Result<(),Error> {
+pub fn call<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   let stk = th.stk();
-  let proc = tpop::<F>(stk,"process")?;
+  let proc : F<E> = tpop(stk,"proc")?;
   proc.run(th)?;
   Ok(())
 }
 
 //the "if" function
-pub fn cond(th:&mut Thread) -> Result<(),Error> {
+pub fn cond<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   let stk = th.stk();
-  let else_proc = tpop::<F>(stk,"else_proc")?;
-  let true_proc = tpop::<F>(stk,"true_proc")?;
-  let val = tpop::<bool>(stk,"truth val")?;
+  let else_proc : F<E> = tpop(stk,"else_proc")?;
+  let true_proc : F<E> = tpop(stk,"true_proc")?;
+  let val :bool = tpop(stk,"truth val")?;
 
   if val {
     true_proc.run(th)?;
@@ -48,9 +48,9 @@ pub fn cond(th:&mut Thread) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn while_loop(th:&mut Thread) -> Result<(),Error> {
-  let body = tpop::<F>(th.stk(),"loop body")?;
-  let test = tpop::<F>(th.stk(),"loop test")?;
+pub fn while_loop<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+  let body : F<E> = tpop(th.stk(),"loop_body")?;
+  let test : F<E> = tpop(th.stk(),"loop_test")?;
   
   loop {
     let v = th.stk().popv().ok_or(Error::Internal("couldn't dup body output in while loop"))?;
@@ -58,7 +58,7 @@ pub fn while_loop(th:&mut Thread) -> Result<(),Error> {
     th.push_val(v);
 
     test.run(th)?;
-    let tr = tpop::<bool>(th.stk(),"loop test variable")?;
+    let tr : bool = tpop(th.stk(),"loop test variable")?;
     if tr {
       body.run(th)?;
     }

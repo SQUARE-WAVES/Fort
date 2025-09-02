@@ -1,16 +1,16 @@
 use crate::{
-  V,F,
+  V,F,ExtType,
   Vstack,
   Dict
 };
 
 #[derive(Debug)]
-pub enum Mode {
-  List(Vstack<V>),
-  Def(Vstack<V>),
+pub enum Mode<Ext:ExtType> {
+  List(Vstack<V<Ext>>),
+  Def(Vstack<V<Ext>>),
 }
 
-impl Mode {
+impl<Ext:ExtType> Mode<Ext> {
   pub fn def() -> Self {
     Self::Def(Default::default())
   }
@@ -19,14 +19,14 @@ impl Mode {
     Self::List(Default::default())
   }
 
-  pub fn vs(&mut self) -> &mut Vstack<V> {
+  pub fn vs(&mut self) -> &mut Vstack<V<Ext>> {
     match self {
       Self::List(stk) => stk,
       Self::Def(stk) => stk
     }
   }
 
-  pub fn end(self) -> Vstack<V> {
+  pub fn end(self) -> Vstack<V<Ext>> {
     match self {
       Self::List(stk) => stk,
       Self::Def(stk) => stk
@@ -34,7 +34,7 @@ impl Mode {
   }
 }
 
-impl std::fmt::Display for Mode {
+impl<Ext:ExtType> std::fmt::Display for Mode<Ext> {
   fn fmt(&self,f: &mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
     match self {
       Self::List(vs) => write!(f,"[{vs}"),
@@ -43,14 +43,14 @@ impl std::fmt::Display for Mode {
   }
 }
 
-pub struct Thread<'a> {
-  root:Mode,
-  dict:&'a mut Dict,
-  mode_stack:Vec<Mode>,
+pub struct Thread<'a,Ext:ExtType> {
+  root:Mode<Ext>,
+  dict:&'a mut Dict<Ext>,
+  mode_stack:Vec<Mode<Ext>>,
 }
 
-impl<'a> Thread<'a> {
-  pub fn as_list(dict:&'a mut Dict) -> Self {
+impl<'a,Ext:ExtType> Thread<'a,Ext> {
+  pub fn as_list(dict:&'a mut Dict<Ext>) -> Self {
     Self {
       root:Mode::list(),
       mode_stack:vec![],
@@ -58,7 +58,7 @@ impl<'a> Thread<'a> {
     }
   }
 
-  pub fn as_def(dict:&'a mut Dict) -> Self {
+  pub fn as_def(dict:&'a mut Dict<Ext>) -> Self {
     Self {
       root:Mode::list(),
       mode_stack:vec![],
@@ -128,11 +128,11 @@ impl<'a> Thread<'a> {
     Ok(())
   }
 
-  pub fn push_val(&mut self,val:V) {
+  pub fn push_val(&mut self,val:V<Ext>) {
     self.stk().push(val)
   }
 
-  pub fn apply(&mut self,call:F) -> Result<(),Error> {
+  pub fn apply(&mut self,call:F<Ext>) -> Result<(),Error> {
     let md = self.mode();
 
     match md {
@@ -144,7 +144,7 @@ impl<'a> Thread<'a> {
     }
   }
 
-  pub fn lookup(&mut self,nm:&str) -> Result<F,Error> {
+  pub fn lookup(&mut self,nm:&str) -> Result<F<Ext>,Error> {
     self.dict.get(nm).map_err(Error::Dictionary).cloned()
   }
 
@@ -161,7 +161,7 @@ impl<'a> Thread<'a> {
   }
 
   //ending stuff
-  pub fn into_function(self) -> Result<F,Error> {
+  pub fn into_function(self) -> Result<F<Ext>,Error> {
     self.mode_stack.is_empty().then(||{
       F::Anon(self.root.end().into())
     })
@@ -169,15 +169,15 @@ impl<'a> Thread<'a> {
   }
 
   //helpos
-  pub fn stk(&mut self) -> &mut Vstack<V> {
+  pub fn stk(&mut self) -> &mut Vstack<V<Ext>> {
     self.mode_stack.last_mut().unwrap_or(&mut self.root).vs()
   }
 
-  pub fn dict(&mut self) -> &mut Dict {
+  pub fn dict(&mut self) -> &mut Dict<Ext> {
     self.dict
   }
 
-  fn mode(&mut self) -> &mut Mode {
+  fn mode(&mut self) -> &mut Mode<Ext> {
     self.mode_stack.last_mut().unwrap_or(&mut self.root)
   }
 }

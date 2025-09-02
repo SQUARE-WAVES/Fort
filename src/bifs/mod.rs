@@ -1,6 +1,8 @@
 use std::sync::Arc;
 use crate::{
   V,
+  ExtType,
+  TypeTag,
   VType,
   F,
   Thread,
@@ -13,12 +15,12 @@ mod math;
 mod functional;
 mod util;
 
-fn def(nm:&'static str,doc:&'static str,f:BifPtr) -> (Arc<str>,F) {
+fn def<E:ExtType>(nm:&'static str,doc:&'static str,f:BifPtr<E>) -> (Arc<str>,F<E>) {
   let bif = F::Bif(nm,doc,f);
   (nm.into(),bif)
 }
 
-pub fn root_dict() -> std::collections::HashMap<Arc<str>,F> {
+pub fn root_dict<E:ExtType>() -> std::collections::HashMap<Arc<str>,F<E>> {
   std::collections::HashMap::from([
     def("dup","a --> a a",stack::dup),
     def("clear","as.. --> Empty",stack::clear),
@@ -67,18 +69,18 @@ impl std::fmt::Display for Error {
 
 impl std::error::Error for Error{}
 
-fn tpop<Val:VType>(stk:&mut Vstack<V>,name:&'static str) -> Result<Val,Error> {
+fn tpop<E:ExtType,Val:VType<E>>(stk:&mut Vstack<V<E>>,name:&'static str) -> Result<Val,Error> {
   let res = stk.pop::<Val>().ok_or(Error::Underflow(name))?;
   match res {
     Ok(p) => Ok(p),
     Err(v) => {
-      let out = Error::PType(name,Val::type_tag(),v.type_tag());
+      let out = Error::PType(name,Val::type_tag(),v.tag());
       stk.push(v);
       Err(out)
     }
   }
 }
 
-fn param(stk:&mut Vstack<V>,name:&'static str) -> Result<V,Error> {
+fn param<E:ExtType>(stk:&mut Vstack<V<E>>,name:&'static str) -> Result<V<E>,Error> {
   stk.popv().ok_or(Error::Underflow(name))
 }

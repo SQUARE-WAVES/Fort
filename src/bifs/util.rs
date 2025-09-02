@@ -1,12 +1,12 @@
 use super::{
-  Thread,
+  Thread,ExtType,
   Error,
   F,
   V,
   tpop
 };
 
-fn print_vs(vs:&[V]) {
+fn print_vs<E:ExtType>(vs:&[V<E>]) {
   if vs.is_empty() {
     println!("()");
   }
@@ -19,9 +19,9 @@ fn print_vs(vs:&[V]) {
   }
 }
 
-pub fn doc(th:&mut Thread) -> Result<(),Error> {
+pub fn doc<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   let stk=th.stk();
-  let f = tpop::<F>(stk,"proc")?;
+  let f : F<E> = tpop(stk,"proc")?;
   match &f {
     F::Bif(nm,d,_) => {
       println!("[[ {nm} ]]");
@@ -42,14 +42,14 @@ pub fn doc(th:&mut Thread) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn print(th:&mut Thread) -> Result<(),Error> {
+pub fn print<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   th.print();
   Ok(())
 }
 
-pub fn do_file(th:&mut Thread) -> Result<(),Error> {
+pub fn do_file<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   use std::sync::Arc;
-  let path = tpop::<Arc<str>>(th.stk(),"path")?;
+  let path : Arc<str> = tpop(th.stk(),"path")?;
   let path : &str = &path; //gotta do this for the as_ref trait to kick in
   let d = th.dict();
   match crate::parser::load_file(path,d) {

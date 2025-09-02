@@ -1,5 +1,5 @@
 use crate::{
-  V,
+  V,ExtType,
   F,
   Dict,
   vm::{
@@ -15,13 +15,14 @@ use crate::{
 };
 
 #[derive(Default)]
-pub struct Repl {
+pub struct Repl<Ext:ExtType> {
   st:St,
-  pos:usize
+  pos:usize,
+  _g:std::marker::PhantomData<Ext>
 }
 
-impl Repl {
-  pub fn buff(&mut self,vm:&mut Thread,buff:&mut String) -> Result<(),Error> {
+impl<Ext:ExtType> Repl<Ext> {
+  pub fn buff(&mut self,vm:&mut Thread<Ext> ,buff:&mut String) -> Result<(),Error> {
     let input = &buff[..];
     let mut lx = Scanner::resume(input,self.pos,self.st);
 
@@ -57,9 +58,13 @@ impl Repl {
   }
 }
 
-pub fn load_file<P:AsRef<std::path::Path>>(p:P,dict:&mut Dict) -> Result<F,Error> {
+pub fn load_file<Ext,P>(p:P,d:&mut Dict<Ext>) -> Result<F<Ext>,Error> 
+where 
+  Ext:ExtType, 
+  P:AsRef<std::path::Path>
+{
   let f = std::fs::read_to_string(p).map_err(Error::Fs)?;
-  let mut vm = Thread::as_def(dict);
+  let mut vm = Thread::as_def(d);
   let mut lx = Scanner::resume(&f[..],0,St::Base);
 
   let th = loop {
@@ -105,7 +110,7 @@ pub fn load_file<P:AsRef<std::path::Path>>(p:P,dict:&mut Dict) -> Result<F,Error
   Ok(vf)
 }
 
-fn push_token(vm:&mut Thread,tk:T) -> Result<(),VMErr> {
+fn push_token<Ext:ExtType>(vm:&mut Thread<Ext>,tk:T) -> Result<(),VMErr> {
   let res = match tk {
     T::OpenParen => {
       vm.start_def();

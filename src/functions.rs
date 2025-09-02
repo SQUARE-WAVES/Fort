@@ -1,21 +1,21 @@
 use std::sync::Arc;
 
 use crate::{
-  V,
+  V,ExtType,
   Thread,
   bifs::Error as BifError
 };
 
-pub type BifPtr = fn(&mut Thread) -> Result<(),BifError>;
+pub type BifPtr<Ext:ExtType> = fn(&mut Thread<Ext>) -> Result<(),BifError>;
 
 #[derive(Debug,Clone)]
-pub enum F {
-  Bif(&'static str,&'static str,BifPtr),
-  Def(Arc<str>,Arc<[V]>),
-  Anon(Arc<[V]>)
+pub enum F<Ext:ExtType> {
+  Bif(&'static str,&'static str,BifPtr<Ext>),
+  Def(Arc<str>,Arc<[V<Ext>]>),
+  Anon(Arc<[V<Ext>]>)
 }
 
-impl std::fmt::Display for F {
+impl<Ext:ExtType> std::fmt::Display for F<Ext> {
   fn fmt(&self,f:&mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
     match self {
       Self::Bif(nm,_,_) => write!(f,"{nm}"),
@@ -25,8 +25,8 @@ impl std::fmt::Display for F {
   }
 }
 
-impl PartialEq for F {
-  fn eq(&self,other:&F) -> bool {
+impl<Ext:ExtType> PartialEq for F<Ext> {
+  fn eq(&self,other:&F<Ext>) -> bool {
     match (self,other) {
       (Self::Bif(_,_,n), Self::Bif(_,_,m)) => std::ptr::fn_addr_eq(*n,*m),
       (Self::Def(_,a), Self::Def(_,b)) => Arc::ptr_eq(a,b),
@@ -36,8 +36,8 @@ impl PartialEq for F {
   }
 }
 
-impl F {
-  pub fn run(&self,th:&mut Thread) -> Result<(),BifError> {
+impl<Ext:ExtType> F<Ext> {
+  pub fn run(&self,th:&mut Thread<Ext>) -> Result<(),BifError> {
     match self {
       Self::Bif(_,_,f) => f(th),
 
