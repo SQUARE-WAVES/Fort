@@ -1,6 +1,7 @@
 use super::{
   V,
   Vstack,
+  Thread,
   Error,
   p_err,
   ptyp_err,
@@ -36,24 +37,25 @@ where
   }
 }
 
-pub fn add(stk:&mut Vstack) -> Result<(),Error> {
-  two_op(stk,|i1,i2|i1+i2,|f1,f2|f1+f2)
+pub fn add(th:&mut Thread) -> Result<(),Error> {
+  two_op(th.stk(),|i1,i2|i1+i2,|f1,f2|f1+f2)
 }
 
-pub fn sub(stk:&mut Vstack) -> Result<(),Error> {
-  two_op(stk,|i1,i2|i1-i2,|f1,f2|f1-f2)
+pub fn sub(th:&mut Thread) -> Result<(),Error> {
+  two_op(th.stk(),|i1,i2|i1-i2,|f1,f2|f1-f2)
 }
 
-pub fn mul(stk:&mut Vstack) -> Result<(),Error> {
-  two_op(stk,|i1,i2|i1*i2,|f1,f2|f1*f2)
+pub fn mul(th:&mut Thread) -> Result<(),Error> {
+  two_op(th.stk(),|i1,i2|i1*i2,|f1,f2|f1*f2)
 }
 
-pub fn div(stk:&mut Vstack) -> Result<(),Error> {
-  two_op(stk,|i1,i2|i1/i2,|f1,f2|f1/f2)
+pub fn div(th:&mut Thread) -> Result<(),Error> {
+  two_op(th.stk(),|i1,i2|i1/i2,|f1,f2|f1/f2)
 }
 
 //for the booleans
-pub fn eq(stk:&mut Vstack) -> Result<(),Error> {
+pub fn eq(th:&mut Thread) -> Result<(),Error> {
+  let stk = th.stk();
   let a = stk.pop().map_err(p_err("a"))?;
   let b = stk.pop().map_err(p_err("b"))?;
   stk.push(a==b);
@@ -61,10 +63,28 @@ pub fn eq(stk:&mut Vstack) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn neq(stk:&mut Vstack) -> Result<(),Error> {
+pub fn neq(th:&mut Thread) -> Result<(),Error> {
+  let stk = th.stk();
   let a = stk.pop().map_err(p_err("a"))?;
   let b = stk.pop().map_err(p_err("b"))?;
   stk.push(a != b);
 
+  Ok(())
+}
+
+pub fn to_int(th:&mut Thread) -> Result<(),Error> {
+  let stk = th.stk();
+  let a = stk.pop().map_err(p_err("a"))?;
+  let b = stk.pop().map_err(p_err("b"))?;
+  stk.push(a != b);
+
+  Ok(())
+}
+
+pub fn to_float(th:&mut Thread) -> Result<(),Error> {
+  let stk = th.stk();
+  let a = stk.tpop::<i64>().map_err(p_err("a"))?;
+  let z :f64 = a as f64;
+  stk.push(z);
   Ok(())
 }

@@ -2,6 +2,7 @@ use std::sync::Arc;
 use crate::{
   V,
   F,
+  Thread,
   functions::BifPtr,
   Vstack,
   StackErr
@@ -39,19 +40,26 @@ pub fn root_dict() -> std::collections::HashMap<Arc<str>,F> {
     def("if","ifTrue(fn) ifFalse(fn) c(B) --> (one of the 2 functions)",functional::cond),
     def("while","body (fn --> whatever) test(fn ? --> bool)",functional::while_loop),
 
-    def("doc","prints a bif's documentation",util::doc)
+    def(".","prints the current state of the thread",util::print),
+    def("doc","prints a bif's documentation",util::doc),
+    def("do_file","loads a file in a spare thread then applys it",util::do_file),
+    def("I","Z --> I(rounded)",math::to_int),
+    def("Z","I --> Z",math::to_float),
   ])
 }
 
 #[derive(Debug,Copy,Clone)]
 pub enum Error {
-  Param(&'static str,StackErr)
+  Param(&'static str,StackErr),
+  Internal(&'static str)
 }
 
 impl std::fmt::Display for Error {
   fn fmt(&self,f:&mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
-    let Error::Param(pname,root) = self;
-    write!(f,"parameter error on param:{pname}, cause:{root}")
+    match self {
+      Error::Param(pname,root) => write!(f,"parameter error on param:{pname}, cause:{root}"),
+      Error::Internal(msg) => write!(f,"internal error {msg}")
+    }
   }
 }
 

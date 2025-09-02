@@ -11,23 +11,24 @@ mod parser;
 
 mod bifs;
 mod vm;
-use vm::VM;
+use vm::Thread;
 
 fn main() -> Result<(),Box<dyn std::error::Error>> {
-  run_repl();
+  run_repl()?;
   Ok(())
 }
 
-fn run_repl() {
+fn run_repl() -> Result<(),Box<dyn std::error::Error>> {
   let mut buff = String::new();
   let stdin = std::io::stdin();
-  let mut vm = VM::default();
+  let mut dict = Dict::default();
   let mut repl = parser::Repl::default();
+  let mut vm = Thread::as_list(&mut dict);
 
   loop {
     if stdin.read_line(&mut buff).is_err() {
       println!("bye");
-      return
+      return Ok(());
     }
 
     match repl.buff(&mut vm,&mut buff) {

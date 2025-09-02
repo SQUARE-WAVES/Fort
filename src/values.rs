@@ -97,3 +97,4 @@ vtraits!{Arc<[V]>,L,"list"}
 vtraits!{i64,I,"int"}
 vtraits!{F,F,"function"}
 vtraits!{bool,B,"bool"}
+vtraits!{Arc<str>,Str,"string"}

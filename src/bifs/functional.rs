@@ -2,62 +2,69 @@ use std::sync::Arc;
 use super::{
   V,
   F,
-  Vstack,
+  Thread,
   Error,
   p_err
 };
 
-pub fn map(stk:&mut Vstack) -> Result<(),Error> {
+pub fn map(th:&mut Thread) -> Result<(),Error> {
+  let stk = th.stk();
   let proc = stk.tpop::<F>().map_err(p_err("proc"))?;
   let lst = stk.tpop::<Arc<[V]>>().map_err(p_err("list"))?;
   
-  let mut subs = Vstack::default();
+  th.start_list();
 
   for val in lst.iter() {
-    subs.push(val.clone());
-    proc.run(&mut subs)?;
+    th.push_val(val.clone());
+    proc.run(th)?;
   };
 
-  let newl = subs.lst(0);
-  stk.push(newl);
+  th.end_list().expect("PANIC, list didn't end for map fn");
+
   Ok(())
 }
 
-pub fn call(stk:&mut Vstack) -> Result<(),Error> {
+pub fn call(th:&mut Thread) -> Result<(),Error> {
+  let stk = th.stk();
   let proc = stk.tpop::<F>().map_err(p_err("process"))?;
-  proc.run(stk)?;
+  proc.run(th)?;
   Ok(())
 }
 
 
 //the "if" function
-pub fn cond(stk:&mut Vstack) -> Result<(),Error> {
+pub fn cond(th:&mut Thread) -> Result<(),Error> {
+  let stk = th.stk();
   let else_proc = stk.tpop::<F>().map_err(p_err("else_proc"))?;
   let true_proc = stk.tpop::<F>().map_err(p_err("true_proc"))?;
   let val = stk.tpop::<bool>().map_err(p_err("truth val"))?;
 
   if val {
-    true_proc.run(stk)?;
+    true_proc.run(th)?;
   }
   else {
-    else_proc.run(stk)?;
+    else_proc.run(th)?;
   }
 
   Ok(())
 }
 
-pub fn while_loop(stk:&mut Vstack) -> Result<(),Error> {
-  let body = stk.tpop::<F>().map_err(p_err("loop body"))?;
-  let test = stk.tpop::<F>().map_err(p_err("loop test"))?;
+pub fn while_loop(th:&mut Thread) -> Result<(),Error> {
+  let body = th.stk().tpop::<F>().map_err(p_err("loop body"))?;
+  let test = th.stk().tpop::<F>().map_err(p_err("loop test"))?;
   
   loop {
-    let v = stk.pop().expect("couldn't dup");
-    stk.push(v.clone());
-    stk.push(v);
-    test.run(stk)?;
-    let tr = stk.tpop::<bool>().map_err(p_err("loop test variable"))?;
+    {
+      let stk = th.stk();
+      let v = stk.pop().expect("couldn't dup");
+      th.push_val(v.clone());
+      th.push_val(v);
+    }
+
+    test.run(th)?;
+    let tr = th.stk().tpop::<bool>().map_err(p_err("loop test variable"))?;
     if tr {
-      body.run(stk)?;
+      body.run(th)?;
     }
     else {
       break
