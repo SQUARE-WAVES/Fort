@@ -4,13 +4,13 @@ use super::{
   F,
   Thread,
   Error,
-  p_err
+  tpop
 };
 
 pub fn map(th:&mut Thread) -> Result<(),Error> {
   let stk = th.stk();
-  let proc = stk.tpop::<F>().map_err(p_err("proc"))?;
-  let lst = stk.tpop::<Arc<[V]>>().map_err(p_err("list"))?;
+  let proc = tpop::<F>(stk,"proc")?;
+  let lst = tpop::<Arc<[V]>>(stk,"list")?;
   
   th.start_list();
 
@@ -26,18 +26,17 @@ pub fn map(th:&mut Thread) -> Result<(),Error> {
 
 pub fn call(th:&mut Thread) -> Result<(),Error> {
   let stk = th.stk();
-  let proc = stk.tpop::<F>().map_err(p_err("process"))?;
+  let proc = tpop::<F>(stk,"process")?;
   proc.run(th)?;
   Ok(())
 }
 
-
 //the "if" function
 pub fn cond(th:&mut Thread) -> Result<(),Error> {
   let stk = th.stk();
-  let else_proc = stk.tpop::<F>().map_err(p_err("else_proc"))?;
-  let true_proc = stk.tpop::<F>().map_err(p_err("true_proc"))?;
-  let val = stk.tpop::<bool>().map_err(p_err("truth val"))?;
+  let else_proc = tpop::<F>(stk,"else_proc")?;
+  let true_proc = tpop::<F>(stk,"true_proc")?;
+  let val = tpop::<bool>(stk,"truth val")?;
 
   if val {
     true_proc.run(th)?;
@@ -50,19 +49,16 @@ pub fn cond(th:&mut Thread) -> Result<(),Error> {
 }
 
 pub fn while_loop(th:&mut Thread) -> Result<(),Error> {
-  let body = th.stk().tpop::<F>().map_err(p_err("loop body"))?;
-  let test = th.stk().tpop::<F>().map_err(p_err("loop test"))?;
+  let body = tpop::<F>(th.stk(),"loop body")?;
+  let test = tpop::<F>(th.stk(),"loop test")?;
   
   loop {
-    {
-      let stk = th.stk();
-      let v = stk.pop().expect("couldn't dup");
-      th.push_val(v.clone());
-      th.push_val(v);
-    }
+    let v = th.stk().popv().ok_or(Error::Internal("couldn't dup body output in while loop"))?;
+    th.push_val(v.clone());
+    th.push_val(v);
 
     test.run(th)?;
-    let tr = th.stk().tpop::<bool>().map_err(p_err("loop test variable"))?;
+    let tr = tpop::<bool>(th.stk(),"loop test variable")?;
     if tr {
       body.run(th)?;
     }

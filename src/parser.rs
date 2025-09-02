@@ -65,11 +65,20 @@ pub fn load_file<P:AsRef<std::path::Path>>(p:P,dict:&mut Dict) -> Result<F,Error
   let th = loop {
     let tk = match lx.eat() {
       Ok(tk) => tk,
+
       Err(TokErr::Done) => {
         break vm; 
       },
+
       Err(e) => {
         let (_,comp,pos) = lx.done();
+        /*
+        let end = comp+pos;
+        let read = &f[..end];
+        let ln = read.lines().count() + 1;
+        let lp = read.rfind('\n').map(|p|end -p).unwrap_or(end);
+        println!("error on line {ln} position {lp}");
+        */
         return Err(Error::FileSrc(e,comp,comp+pos));
       }
     };
@@ -78,6 +87,14 @@ pub fn load_file<P:AsRef<std::path::Path>>(p:P,dict:&mut Dict) -> Result<F,Error
       Ok(()) => (),
       Err(e) => {
         let (_,comp,pos) = lx.done();
+        /*
+        let end = comp+pos;
+        let read = &f[..end];
+        let ln = read.lines().count() + 1;
+        let lp = read.rfind('\n').map(|p|end -p).unwrap_or(end);
+        println!("error on line {ln} position {lp}");
+        */
+
         return Err(Error::FileExec(e,comp,comp+pos));
       }
     };

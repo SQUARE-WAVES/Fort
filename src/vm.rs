@@ -6,8 +6,8 @@ use crate::{
 
 #[derive(Debug)]
 pub enum Mode {
-  List(Vstack),
-  Def(Vstack),
+  List(Vstack<V>),
+  Def(Vstack<V>),
 }
 
 impl Mode {
@@ -19,14 +19,14 @@ impl Mode {
     Self::List(Default::default())
   }
 
-  pub fn vs(&mut self) -> &mut Vstack {
+  pub fn vs(&mut self) -> &mut Vstack<V> {
     match self {
       Self::List(stk) => stk,
       Self::Def(stk) => stk
     }
   }
 
-  pub fn to_stk(self) -> Vstack {
+  pub fn end(self) -> Vstack<V> {
     match self {
       Self::List(stk) => stk,
       Self::Def(stk) => stk
@@ -118,7 +118,9 @@ impl<'a> Thread<'a> {
     };
 
     self.dict.pop_scope();
+
     let f = self.dict.define(vs.into(),name.map(|n|n.into()));
+
     if matches!(f,F::Anon(_)) {
       self.push_val(V::F(f))
     }
@@ -161,18 +163,18 @@ impl<'a> Thread<'a> {
   //ending stuff
   pub fn into_function(self) -> Result<F,Error> {
     self.mode_stack.is_empty().then(||{
-      F::Anon(self.root.to_stk().into())
+      F::Anon(self.root.end().into())
     })
     .ok_or(Error::NotDone)
   }
 
   //helpos
-  pub fn stk(&mut self) -> &mut Vstack {
+  pub fn stk(&mut self) -> &mut Vstack<V> {
     self.mode_stack.last_mut().unwrap_or(&mut self.root).vs()
   }
 
   pub fn dict(&mut self) -> &mut Dict {
-    &mut self.dict
+    self.dict
   }
 
   fn mode(&mut self) -> &mut Mode {

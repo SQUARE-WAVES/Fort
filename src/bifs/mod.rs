@@ -1,11 +1,11 @@
 use std::sync::Arc;
 use crate::{
   V,
+  VType,
   F,
   Thread,
   functions::BifPtr,
-  Vstack,
-  StackErr
+  Vstack
 };
 
 mod stack;
@@ -50,14 +50,16 @@ pub fn root_dict() -> std::collections::HashMap<Arc<str>,F> {
 
 #[derive(Debug,Copy,Clone)]
 pub enum Error {
-  Param(&'static str,StackErr),
+  Underflow(&'static str),
+  PType(&'static str,&'static str,&'static str),
   Internal(&'static str)
 }
 
 impl std::fmt::Display for Error {
   fn fmt(&self,f:&mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
     match self {
-      Error::Param(pname,root) => write!(f,"parameter error on param:{pname}, cause:{root}"),
+      Error::Underflow(name) => write!(f,"stack underflow fetching param {name}"),
+      Error::PType(nm,w,g) => write!(f,"wrong type for param {nm} wanted: {w} got: {g}"),
       Error::Internal(msg) => write!(f,"internal error {msg}")
     }
   }
@@ -65,14 +67,18 @@ impl std::fmt::Display for Error {
 
 impl std::error::Error for Error{}
 
-pub fn p_err(nm:&'static str) -> impl FnOnce(StackErr) -> Error {
-  move|se|Error::Param(nm,se)
+fn tpop<Val:VType>(stk:&mut Vstack<V>,name:&'static str) -> Result<Val,Error> {
+  let res = stk.pop::<Val>().ok_or(Error::Underflow(name))?;
+  match res {
+    Ok(p) => Ok(p),
+    Err(v) => {
+      let out = Error::PType(name,Val::type_tag(),v.type_tag());
+      stk.push(v);
+      Err(out)
+    }
+  }
 }
 
-pub fn punder(nm:&'static str) -> Error {
-  Error::Param(nm,StackErr::Underflow)
-}
-
-pub fn ptyp_err(nm:&'static str,exp:&'static str,rcv:&'static str) -> Error {
-  Error::Param(nm,StackErr::Type(exp,rcv))
+fn param(stk:&mut Vstack<V>,name:&'static str) -> Result<V,Error> {
+  stk.popv().ok_or(Error::Underflow(name))
 }

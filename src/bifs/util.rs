@@ -1,9 +1,9 @@
 use super::{
   Thread,
   Error,
-  p_err,
   F,
-  V
+  V,
+  tpop
 };
 
 fn print_vs(vs:&[V]) {
@@ -21,7 +21,7 @@ fn print_vs(vs:&[V]) {
 
 pub fn doc(th:&mut Thread) -> Result<(),Error> {
   let stk=th.stk();
-  let f = stk.tpop::<F>().map_err(p_err("proc"))?;
+  let f = tpop::<F>(stk,"proc")?;
   match &f {
     F::Bif(nm,d,_) => {
       println!("[[ {nm} ]]");
@@ -49,14 +49,14 @@ pub fn print(th:&mut Thread) -> Result<(),Error> {
 
 pub fn do_file(th:&mut Thread) -> Result<(),Error> {
   use std::sync::Arc;
-  let path = th.stk().tpop::<Arc<str>>().map_err(p_err("path"))?;
+  let path = tpop::<Arc<str>>(th.stk(),"path")?;
   let path : &str = &path; //gotta do this for the as_ref trait to kick in
   let d = th.dict();
   match crate::parser::load_file(path,d) {
     Ok(f) => f.run(th),
     Err(e) => {
       println!("--file load error--");
-      println!("{e}");
+      println!("{e:?}");
       Err(Error::Internal("file load error"))
     }
   }
