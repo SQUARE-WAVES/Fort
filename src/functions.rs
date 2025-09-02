@@ -1,12 +1,12 @@
 use std::sync::Arc;
 
 use crate::{
-  Vstack,
   V,
+  Thread,
   bifs::Error as BifError
 };
 
-pub type BifPtr = fn(&mut Vstack) -> Result<(),BifError>;
+pub type BifPtr = fn(&mut Thread) -> Result<(),BifError>;
 
 #[derive(Debug,Clone)]
 pub enum F {
@@ -37,18 +37,18 @@ impl PartialEq for F {
 }
 
 impl F {
-  pub fn run(&self,stk:&mut Vstack) -> Result<(),BifError> {
+  pub fn run(&self,th:&mut Thread) -> Result<(),BifError> {
     match self {
-      Self::Bif(_,_,f) => f(stk),
+      Self::Bif(_,_,f) => f(th),
 
       Self::Def(_,arc) => {
         for v in arc.iter() {
           match v {
             V::C(f) => {
-              f.run(stk)?;
+              f.run(th)?;
             }
             x => {
-              stk.push(x.clone())
+              th.push_val(x.clone());
             }
           };
         }
@@ -60,10 +60,10 @@ impl F {
         for v in arc.iter() {
           match v {
             V::C(f) => {
-              f.run(stk)?;
+              f.run(th)?;
             }
             x => {
-              stk.push(x.clone())
+              th.push_val(x.clone())
             }
           };
         }

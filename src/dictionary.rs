@@ -3,7 +3,11 @@ use std::{
   sync::Arc
 };
 
-use crate::{F,V,bifs};
+use crate::{
+  F,
+  V,
+  bifs
+};
 
 #[derive(Default)]
 pub struct Scope {

@@ -1,22 +1,13 @@
-use std::sync::Arc;
-
 use crate::{
   V,F,
   Vstack,
-  Dict,
-  tokens::Token as T
+  Dict
 };
 
 #[derive(Debug)]
 pub enum Mode {
   List(Vstack),
   Def(Vstack),
-}
-
-impl Default for Mode {
-  fn default() -> Self {
-    Self::list()
-  }
 }
 
 impl Mode {
@@ -35,8 +26,11 @@ impl Mode {
     }
   }
 
-  pub fn push_value(&mut self,val:V) {
-    self.vs().push(val)
+  pub fn to_stk(self) -> Vstack {
+    match self {
+      Self::List(stk) => stk,
+      Self::Def(stk) => stk
+    }
   }
 }
 
@@ -49,14 +43,29 @@ impl std::fmt::Display for Mode {
   }
 }
 
-#[derive(Default)]
-pub struct VM {
+pub struct Thread<'a> {
   root:Mode,
+  dict:&'a mut Dict,
   mode_stack:Vec<Mode>,
-  dict:Dict
 }
 
-impl VM {
+impl<'a> Thread<'a> {
+  pub fn as_list(dict:&'a mut Dict) -> Self {
+    Self {
+      root:Mode::list(),
+      mode_stack:vec![],
+      dict
+    }
+  }
+
+  pub fn as_def(dict:&'a mut Dict) -> Self {
+    Self {
+      root:Mode::list(),
+      mode_stack:vec![],
+      dict
+    }
+  }
+
   pub fn drop_modes(&mut self) {
     self.mode_stack.clear()
   }
@@ -75,137 +84,121 @@ impl VM {
     }
   }
 
-  fn mode(&mut self) -> &mut Mode {
-    self.mode_stack.last_mut().unwrap_or(&mut self.root)
+  pub fn start_list(&mut self) { 
+    self.mode_stack.push(Mode::list()) 
   }
 
-  fn push_def(&mut self) { 
-    self.mode_stack.push(Mode::def());
+  pub fn end_list(&mut self) -> Result<(),Error> {
+    match self.mode_stack.pop() {
+      Some(Mode::List(vs)) => {
+        self.push_val(V::L(vs.into()));
+        Ok(())
+      },
+      _ => {
+        self.drop_modes();
+        Err(Error::ListEnd)
+      }
+    }
+  }
+
+  pub fn start_def(&mut self) {
     self.dict.push_scope();
+    self.mode_stack.push(Mode::def())
   }
 
-  fn push_list(&mut self) { self.mode_stack.push(Mode::list()) }
+  pub fn end_def(&mut self,name:Option<&str>) -> Result<(),Error> {
+    let vs = match self.mode_stack.pop() {
+      Some(Mode::Def(vs)) => {
+        vs
+      },
+      _ => {
+        self.drop_modes();
+        return Err(Error::DefEnd)
+      }
+    };
 
-  pub fn push_value(&mut self,val:V) {
-    self.mode().push_value(val)
+    self.dict.pop_scope();
+    let f = self.dict.define(vs.into(),name.map(|n|n.into()));
+    if matches!(f,F::Anon(_)) {
+      self.push_val(V::F(f))
+    }
+
+    Ok(())
   }
 
-  fn push_call(&mut self,call:F) -> Result<(),Error> {
+  pub fn push_val(&mut self,val:V) {
+    self.stk().push(val)
+  }
+
+  pub fn apply(&mut self,call:F) -> Result<(),Error> {
     let md = self.mode();
+
     match md {
       Mode::Def(vs) => {
         vs.push(V::C(call));
         Ok(())
       },
-      Mode::List(vs) => call.run(vs).map_err(|_|Error::Bad(1)),
+      Mode::List(_) => call.run(self).map_err(Error::Call)
     }
   }
 
-  fn push_quote(&mut self,qw:&str) -> Result<(),Error> {
-    let q = self.dict.get(qw).map_err(|_|Error::Bad(3))?;
-    self.push_value(V::F(q.clone()));
+  pub fn lookup(&mut self,nm:&str) -> Result<F,Error> {
+    self.dict.get(nm).map_err(Error::Dictionary).cloned()
+  }
+
+  //this is shorthand
+  pub fn word(&mut self,nm:&str) -> Result<(),Error> {
+    let f = self.lookup(nm)?;
+    self.apply(f)
+  }
+
+  pub fn quote(&mut self,nm:&str) -> Result<(),Error> {
+    let f = self.lookup(nm)?;
+    self.push_val(V::F(f));
     Ok(())
   }
 
-  fn push_word(&mut self,nm:&str) -> Result<(),Error> {
-    let q = self.dict.get(nm).map_err(|_|Error::Bad(3))?;
-    self.push_call(q.clone())?;
-    Ok(())
+  //ending stuff
+  pub fn into_function(self) -> Result<F,Error> {
+    self.mode_stack.is_empty().then(||{
+      F::Anon(self.root.to_stk().into())
+    })
+    .ok_or(Error::NotDone)
   }
 
-  fn end_list(&mut self) -> Result<(),Error> {
-    match self.mode_stack.pop() {
-      Some(Mode::List(vs)) => {
-        self.push_value(V::L(vs.into()));
-        Ok(())
-      },
-      Some(Mode::Def(_)) => {
-        self.drop_modes();
-        Err(Error::Bad(10))
-      },
-      None => Err(Error::Bad(11))
-    }
+  //helpos
+  pub fn stk(&mut self) -> &mut Vstack {
+    self.mode_stack.last_mut().unwrap_or(&mut self.root).vs()
   }
 
-  fn end_def<T1:Into<Option<Arc<str>>>>(&mut self,nm:T1) -> Result<(),Error> {
-    let vs = match self.mode_stack.pop() {
-      Some(Mode::Def(stk)) => Ok(stk),
-      _ => Err(Error::Bad(20))
-    }?;
-
-    self.dict.pop_scope();
-
-    let f = self.dict.define(vs.into(),nm);
-    if matches!(f,F::Anon(_)) {
-      self.push_value(V::F(f))
-    }
-
-    Ok(())
+  pub fn dict(&mut self) -> &mut Dict {
+    &mut self.dict
   }
 
-  pub fn push_token(&mut self,tok:T) -> Result<(),Error> {
-    let res = match tok {
-      T::OpenParen => {
-        self.push_def();
-        Ok(())
-      },
-      
-      T::CloseParen => self.end_def(None),
-      T::CloseDef(nm) => self.end_def::<Arc<str>>(nm.into()),
-
-      T::OpenBracket => {
-        self.push_list();
-        Ok(())
-      },
-      T::CloseBracket => self.end_list(),
-
-      T::True => { 
-        self.push_value(V::B(true));
-        Ok(())
-      },
-      T::False => {
-        self.push_value(V::B(false)); 
-        Ok(())
-      },
-      T::I(i) =>{ 
-        self.push_value(V::I(i)); 
-        Ok(())
-      },
-      T::Z(z) =>{ 
-        self.push_value(V::Z(z));
-        Ok(())
-      },
-      T::Str(s) => {
-        self.push_value(V::Str(s.into()));
-        Ok(())
-      }
-
-      T::Word(nm) => self.push_word(nm),
-      T::QWord(nm) => self.push_quote(nm),
-      T::Print => {
-        self.print();
-        Ok(())
-      }
-    };
-
-    if res.is_err() {
-      self.drop_modes();
-    }
-
-    res
+  fn mode(&mut self) -> &mut Mode {
+    self.mode_stack.last_mut().unwrap_or(&mut self.root)
   }
 }
 
 #[derive(Clone,Copy,Debug)]
 pub enum Error {
-  Bad(usize)
+  Call(crate::bifs::Error),
+  Dictionary(crate::dictionary::Error),
+  DefEnd,
+  ListEnd,
+  NotDone
 }
 
 impl std::fmt::Display for Error {
   fn fmt(&self,f: &mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
     match self {
-      Self::Bad(u) => write!(f,"VM TEMPORARY ERR CODE {u}")
+      Self::Call(e) => write!(f,"Function Call Error: {e}"),
+      Self::Dictionary(e) => write!(f,"Error looking up word: {e}"),
+      Self::DefEnd => write!(f,"found the end of a function def when we weren't defining one"),
+      Self::ListEnd => write!(f,"found the end of a List when we weren't making one"),
+      Self::NotDone => write!(f,"Terminating VM while it's still making a list or def")
     }
   }
 }
 
+impl std::error::Error for Error {}

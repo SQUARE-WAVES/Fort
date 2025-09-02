@@ -1,17 +1,18 @@
 use super::{
-  Vstack,
-  Error,
-  //err
+  Thread,
+  Error
 };
 
-pub fn dup(stk:&mut Vstack) -> Result<(),Error> {
+pub fn dup(th:&mut Thread) -> Result<(),Error> {
+  let stk = th.stk();
   let v = stk.pop().map_err(|se|Error::Param("a",se))?;
   stk.push(v.clone());
   stk.push(v.clone());
   Ok(())
 }
 
-pub fn over(stk:&mut Vstack) -> Result<(),Error> {
+pub fn over(th:&mut Thread) -> Result<(),Error> {
+  let stk = th.stk();
   let b = stk.pop().map_err(|se|Error::Param("b",se))?;
   let a = stk.pop().map_err(|se|Error::Param("a",se))?;
   let ac = a.clone();
@@ -21,7 +22,8 @@ pub fn over(stk:&mut Vstack) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn swap(stk:&mut Vstack) -> Result<(),Error> {
+pub fn swap(th:&mut Thread) -> Result<(),Error> {
+  let stk = th.stk();
   let b = stk.pop().map_err(|se|Error::Param("b",se))?;
   let a = stk.pop().map_err(|se|Error::Param("a",se))?;
   stk.push(b);
@@ -29,7 +31,8 @@ pub fn swap(stk:&mut Vstack) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn rot(stk:&mut Vstack) -> Result<(),Error> {
+pub fn rot(th:&mut Thread) -> Result<(),Error> {
+  let stk = th.stk();
   let c = stk.pop().map_err(|se|Error::Param("c",se))?;
   let b = stk.pop().map_err(|se|Error::Param("b",se))?;
   let a = stk.pop().map_err(|se|Error::Param("a",se))?;
@@ -39,12 +42,13 @@ pub fn rot(stk:&mut Vstack) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn drop(stk:&mut Vstack) -> Result<(),Error> {
+pub fn drop(th:&mut Thread) -> Result<(),Error> {
+  let stk = th.stk();
   let _ = stk.pop();
   Ok(())
 }
 
-pub fn clear(stk:&mut Vstack) -> Result<(),Error> {
-  stk.clear();
+pub fn clear(th:&mut Thread) -> Result<(),Error> {
+  th.stk().clear();
   Ok(())
 }

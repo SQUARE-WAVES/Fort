@@ -10,8 +10,7 @@ pub enum Token<'a> {
   QWord(&'a str),
   I(i64),
   Z(f64),
-  Str(&'a str),
-  Print,
+  Str(&'a str)
 
   //SymWord(&'a str),
 }
@@ -110,14 +109,10 @@ impl<'a> Scanner<'a> {
         self.step(c);
         Ok(self.complete(Token::CloseBracket))
       },
-      '.' => {
-        self.step(c);
-        Ok(self.complete(Token::Print))
-      },
       '-' => self.advance(c,St::Minus),
       '"' => self.advance(c,St::Str),
       '`' => self.advance(c,St::Qw),
-      _ if c.is_alphabetic() || "!@#$%^&*_+?|<>,.".contains(c) => self.advance(c,St::Word),
+      _ if c.is_alphabetic() || word_start(c) => self.advance(c,St::Word),
       _ if c.is_numeric() =>  self.advance(c,St::Num),
       _ if c.is_whitespace() => self.advance(c,St::Base),
       _ => Err(Error::InvalidChar)
@@ -125,7 +120,7 @@ impl<'a> Scanner<'a> {
   }
 
   fn qw_state(&mut self,c:char) -> Result<Token,Error> {
-    if c.is_alphabetic() || "!@#$%^&*_+?|<>,.".contains(c) {
+    if word_start(c) {
       self.advance(c,St::Word)
     }
     else {
@@ -144,7 +139,7 @@ impl<'a> Scanner<'a> {
     let work = self.seen();
     match (&work[0..work.len().min(3)],c) {
       ("):",':') => self.advance(c,St::CloseDef),
-      (")::",_) if c.is_alphabetic() || "!@#$%^&*_+?|<>,.".contains(c) => {
+      (")::",_) if word_start(c) => {
         self.advance(c,St::Word)
       },
       _ => Err(Error::InvalidDefClose) 
@@ -153,7 +148,7 @@ impl<'a> Scanner<'a> {
 
   fn word_state(&mut self,c:char) -> Result<Token,Error> {
     match c {
-      _ if c.is_alphanumeric() ||"!@#$%^&*_+?|<>,.-_".contains(c) => self.advance(c,St::Word),
+      _ if word_char(c) => self.advance(c,St::Word),
       '(' | ')' | '[' | ']' => self.word_terminal(),
       _ if c.is_whitespace()  => self.word_terminal(),
       _ => Err(Error::InvalidCharInWord) 
@@ -188,7 +183,7 @@ impl<'a> Scanner<'a> {
       '(' | ')' | '[' | ']' => Ok(self.complete(Token::Word(self.seen()))),
       _ if c.is_whitespace() => Ok(self.complete(Token::Word(self.seen()))),
       _ if c.is_numeric() => self.advance(c,St::Num),
-      _ if c.is_alphabetic() || "!@#$%^&*_+?|-=<>,.".contains(c) => self.advance(c,St::Word),
+      _ if word_start(c) => self.advance(c,St::Word),
       _ => Err(Error::InvalidCharAfterMinus)
     }
   }
@@ -237,6 +232,15 @@ impl<'a> Scanner<'a> {
       _ => self.advance(c,St::Str)
     }
   }
+}
+
+//some helpers
+fn word_start(c:char) -> bool {
+  c.is_alphabetic() || "/!@#$%^&*_+?|<>,.".contains(c)
+}
+
+fn word_char(c:char) -> bool {
+  c.is_alphanumeric() || "/!@#$%^&*_+?|<>,.-_".contains(c) 
 }
 
 #[derive(Debug,Clone,Copy)]
