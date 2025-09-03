@@ -6,7 +6,7 @@ use crate::{
   VType,
   F,
   Thread,
-  functions::BifPtr,
+  functions::Bif,
   Vstack
 };
 
@@ -15,12 +15,7 @@ mod math;
 mod functional;
 mod util;
 
-fn def<E:ExtType>(nm:&'static str,doc:&'static str,f:BifPtr<E>) -> (Arc<str>,F<E>) {
-  let bif = F::Bif(nm,doc,f);
-  (nm.into(),bif)
-}
-
-pub fn root_dict<E:ExtType>() -> std::collections::HashMap<Arc<str>,F<E>> {
+pub fn built_ins<E:ExtType>() -> std::collections::HashMap<Arc<str>,F<E>> {
   std::collections::HashMap::from([
     def("dup","a --> a a",stack::dup),
     def("clear","as.. --> Empty",stack::clear),
@@ -69,7 +64,10 @@ impl std::fmt::Display for Error {
 
 impl std::error::Error for Error{}
 
-fn tpop<E:ExtType,Val:VType<E>>(stk:&mut Vstack<V<E>>,name:&'static str) -> Result<Val,Error> {
+
+//------------------------------------------------------------------------------------------------
+//Utilities for writing BIFs 
+pub fn tpop<E:ExtType,Val:VType<E>>(stk:&mut Vstack<V<E>>,name:&'static str) -> Result<Val,Error> {
   let res = stk.pop::<Val>().ok_or(Error::Underflow(name))?;
   match res {
     Ok(p) => Ok(p),
@@ -81,6 +79,11 @@ fn tpop<E:ExtType,Val:VType<E>>(stk:&mut Vstack<V<E>>,name:&'static str) -> Resu
   }
 }
 
-fn param<E:ExtType>(stk:&mut Vstack<V<E>>,name:&'static str) -> Result<V<E>,Error> {
+pub fn param<E:ExtType>(stk:&mut Vstack<V<E>>,name:&'static str) -> Result<V<E>,Error> {
   stk.popv().ok_or(Error::Underflow(name))
+}
+
+fn def<E:ExtType>(nm:&'static str,doc:&'static str,f:Bif<E>) -> (Arc<str>,F<E>) {
+  let bif = F::Bif(nm,doc,f);
+  (nm.into(),bif)
 }

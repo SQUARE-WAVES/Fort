@@ -6,7 +6,6 @@ use std::{
 use crate::{
   F,
   V,ExtType,
-  bifs
 };
 
 pub struct Scope<Ext:ExtType> {
@@ -49,8 +48,7 @@ pub struct Dict<Ext:ExtType> {
 }
 
 impl<Ext:ExtType> Dict<Ext> {
-  pub fn new() -> Self {
-    let root :Scope<Ext> = bifs::root_dict().into();
+  pub fn new(root:Scope<Ext>) -> Self {
     Self {
       root,
       stk:vec![]

@@ -6,11 +6,11 @@ use crate::{
   bifs::Error as BifError
 };
 
-pub type BifPtr<Ext:ExtType> = fn(&mut Thread<Ext>) -> Result<(),BifError>;
+pub type Bif<Ext:ExtType> = fn(&mut Thread<Ext>) -> Result<(),BifError>;
 
 #[derive(Debug,Clone)]
 pub enum F<Ext:ExtType> {
-  Bif(&'static str,&'static str,BifPtr<Ext>),
+  Bif(&'static str,&'static str,Bif<Ext>),
   Def(Arc<str>,Arc<[V<Ext>]>),
   Anon(Arc<[V<Ext>]>)
 }

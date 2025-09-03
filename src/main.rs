@@ -13,6 +13,8 @@ mod bifs;
 mod vm;
 use vm::Thread;
 
+//mod sys;
+
 fn main() -> Result<(),Box<dyn std::error::Error>> {
   run_repl()?;
   Ok(())
@@ -21,7 +23,7 @@ fn main() -> Result<(),Box<dyn std::error::Error>> {
 fn run_repl() -> Result<(),Box<dyn std::error::Error>> {
   let mut buff = String::new();
   let stdin = std::io::stdin();
-  let mut dict = Dict::<u8>::new();
+  let mut dict = Dict::<u8>::new(bifs::built_ins::<u8>().into());
   let mut repl = parser::Repl::default();
   let mut vm = Thread::as_list(&mut dict);
 
