@@ -1,16 +1,17 @@
 use std::sync::Arc;
 use super::{
-  V,ExtType,
+  V,
+  Fort,
   F,
   Thread,
   Error,
   tpop
 };
 
-pub fn map<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn map<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   let stk = th.stk();
-  let proc : F<E> = tpop(stk,"proc")?;
-  let lst : Arc<[V<E>]> = tpop(stk,"list")?;
+  let proc : F<S> = tpop(stk,"proc")?;
+  let lst : Arc<[V<S>]> = tpop(stk,"list")?;
   
   th.start_list();
 
@@ -24,18 +25,18 @@ pub fn map<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn call<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn call<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   let stk = th.stk();
-  let proc : F<E> = tpop(stk,"proc")?;
+  let proc : F<S> = tpop(stk,"proc")?;
   proc.run(th)?;
   Ok(())
 }
 
 //the "if" function
-pub fn cond<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn cond<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   let stk = th.stk();
-  let else_proc : F<E> = tpop(stk,"else_proc")?;
-  let true_proc : F<E> = tpop(stk,"true_proc")?;
+  let else_proc : F<S> = tpop(stk,"else_proc")?;
+  let true_proc : F<S> = tpop(stk,"true_proc")?;
   let val :bool = tpop(stk,"truth val")?;
 
   if val {
@@ -48,9 +49,9 @@ pub fn cond<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn while_loop<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
-  let body : F<E> = tpop(th.stk(),"loop_body")?;
-  let test : F<E> = tpop(th.stk(),"loop_test")?;
+pub fn while_loop<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
+  let body : F<S> = tpop(th.stk(),"loop_body")?;
+  let test : F<S> = tpop(th.stk(),"loop_test")?;
   
   loop {
     let v = th.stk().popv().ok_or(Error::Internal("couldn't dup body output in while loop"))?;

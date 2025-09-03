@@ -1,18 +1,19 @@
 use super::{
-  V,ExtType,
-  TypeTag,
+  V,
+  Fort,
   Vstack,
   Thread,
   Error,
   param,
-  tpop
+  tpop,
+  TypeTag
 };
 
 //this exists to avoid duplicating the type checking stuff
 //for every single math function
-fn two_op<E,II,FF>(stk:&mut Vstack<V<E>>,is:II,fs:FF) -> Result<(),Error> 
+fn two_op<S,II,FF>(stk:&mut Vstack<V<S>>,is:II,fs:FF) -> Result<(),Error> 
 where 
-    E:ExtType,
+    S:Fort,
     II:FnOnce(i64,i64)->i64,
     FF:FnOnce(f64,f64)->f64
 {
@@ -38,24 +39,24 @@ where
   }
 }
 
-pub fn add<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn add<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   two_op(th.stk(),|i1,i2|i1+i2,|f1,f2|f1+f2)
 }
 
-pub fn sub<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn sub<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   two_op(th.stk(),|i1,i2|i1-i2,|f1,f2|f1-f2)
 }
 
-pub fn mul<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn mul<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   two_op(th.stk(),|i1,i2|i1*i2,|f1,f2|f1*f2)
 }
 
-pub fn div<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn div<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   two_op(th.stk(),|i1,i2|i1/i2,|f1,f2|f1/f2)
 }
 
 //for the booleans
-pub fn eq<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn eq<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   let stk = th.stk();
   let a = param(stk,"a")?;
   let b = param(stk,"b")?;
@@ -64,7 +65,7 @@ pub fn eq<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn neq<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn neq<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   let stk = th.stk();
   let a = param(stk,"a")?;
   let b = param(stk,"b")?;
@@ -74,7 +75,7 @@ pub fn neq<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
 }
 
 //TODO::check for better casting, I think these can panic
-pub fn to_int<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn to_int<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   let stk = th.stk();
   let z :f64 = tpop(stk,"z")?;
   let i : i64 = z as i64;
@@ -82,7 +83,7 @@ pub fn to_int<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn to_float<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn to_float<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   let stk = th.stk();
   let i : i64= tpop(stk,"i")?;
   let z :f64 = i as f64;

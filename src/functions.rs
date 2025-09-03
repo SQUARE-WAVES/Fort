@@ -1,42 +1,31 @@
-use std::sync::Arc;
-
-use crate::{
-  V,ExtType,
-  Thread,
-  bifs::Error as BifError
+use std::{
+  fmt::{
+    Debug,
+    Display,
+    Formatter,
+    Error as FmtErr
+  },
+  sync::Arc
 };
 
-#[derive(Debug,Clone)]
-pub struct Bif<E:ExtType>(fn(&mut Thread<E>) -> Result<(),BifError>);
+use crate::{
+  V,
+  Thread,
+  bifs::{
+    Bif,
+    Error as BifError
+  },
+  traits::Fort
+};
 
-impl<E:ExtType> Bif<E> {
-  pub fn call(&self,th:&mut Thread<E>) -> Result<(),BifError> {
-    (self.0)(th)
-  }
+pub enum F<S:Fort> {
+  Bif(&'static str,&'static str,Bif<S>),
+  Def(Arc<str>,Arc<[V<S>]>),
+  Anon(Arc<[V<S>]>)
 }
 
-impl<E:ExtType> From<fn(&mut Thread<E>) -> Result<(),BifError>> for Bif<E> {
-  fn from(f:fn(&mut Thread<E>) -> Result<(),BifError>) -> Self {
-    Self(f)
-  }
-}
-
-impl<E:ExtType> PartialEq for Bif<E> {
-  fn eq(&self,o:&Self) -> bool {
-    let(Self(n),Self(m)) = (self,o);
-    std::ptr::fn_addr_eq(*n,*m)
-  }
-}
-
-#[derive(Debug,Clone)]
-pub enum F<Ext:ExtType> {
-  Bif(&'static str,&'static str,Bif<Ext>),
-  Def(Arc<str>,Arc<[V<Ext>]>),
-  Anon(Arc<[V<Ext>]>)
-}
-
-impl<Ext:ExtType> std::fmt::Display for F<Ext> {
-  fn fmt(&self,f:&mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
+impl<S:Fort> Display for F<S> {
+  fn fmt(&self,f:&mut Formatter) -> Result<(),FmtErr> {
     match self {
       Self::Bif(nm,_,_) => write!(f,"{nm}"),
       Self::Def(nm,_) => write!(f,"{nm}"),
@@ -45,8 +34,28 @@ impl<Ext:ExtType> std::fmt::Display for F<Ext> {
   }
 }
 
-impl<Ext:ExtType> PartialEq for F<Ext> {
-  fn eq(&self,other:&F<Ext>) -> bool {
+impl<S:Fort> Debug for F<S> {
+  fn fmt(&self,f:&mut Formatter) -> Result<(),FmtErr> {
+    match self {
+      Self::Bif(nm,_,_) => write!(f,"F::Bif({nm})"),
+      Self::Def(nm,_) => write!(f,"F:Def({nm})"),
+      Self::Anon(_) => write!(f,"F::Anon"),
+    }
+  }
+}
+
+impl<S:Fort> Clone for F<S> {
+  fn clone(&self) -> Self {
+    match self {
+      Self::Bif(nm,doc,f) => Self::Bif(nm,doc,f.clone()),
+      Self::Def(nm,vs) => Self::Def(nm.clone(),vs.clone()),
+      Self::Anon(vs) => Self::Anon(vs.clone())
+    }
+  }
+}
+
+impl<S:Fort> PartialEq for F<S> {
+  fn eq(&self,other:&F<S>) -> bool {
     match (self,other) {
       (Self::Bif(_,_,n), Self::Bif(_,_,m)) => n==m,
       (Self::Def(_,a), Self::Def(_,b)) => Arc::ptr_eq(a,b),
@@ -56,8 +65,8 @@ impl<Ext:ExtType> PartialEq for F<Ext> {
   }
 }
 
-impl<Ext:ExtType> F<Ext> {
-  pub fn run(&self,th:&mut Thread<Ext>) -> Result<(),BifError> {
+impl<S:Fort> F<S> {
+  pub fn run(&self,th:&mut Thread<S>) -> Result<(),BifError> {
     match self {
       Self::Bif(_,_,f) => f.call(th),
 

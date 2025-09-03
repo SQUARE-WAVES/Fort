@@ -5,45 +5,31 @@ use std::fmt::{
 };
 
 use std::sync::Arc;
+
 use crate::{
-  Txt,Sym,
-  functions::F
+  Txt,Sym,F,
+  traits::{
+    Fort,
+    TaggedType,
+    TypeTag
+  }
 };
 
-//-----------------------------------------------------------------------------
-//OH BOY A BUNCH OF TRAITS
-
-//these 2 are here to make sure when you get a type error it can tell you what
-//was going on
-pub trait TaggedType {
-  fn type_tag() -> &'static str;
-}
-
-pub trait TypeTag {
-  fn tag(&self) -> &'static str;
-}
-//This is a kind of type that can be added externally to the system
-pub trait ExtType:TypeTag+Debug+Display+Clone+PartialEq {}
-
-//this is a type that can be popped off the stack safely, you want your
-//external type to implent both of these
-pub trait VType<Ext:ExtType>:TaggedType + TryFrom<V<Ext>,Error=V<Ext>> + Into<V<Ext>> {}
-
 //these are the basic types that can be extended
-#[derive(Debug,Clone,PartialEq)]
-pub enum V<Ext:ExtType> {
+#[derive(Debug)]
+pub enum V<S:Fort> {
   Z(f64),
   L(Arc<[Self]>),
   I(i64),
-  F(F<Ext>),
-  C(F<Ext>),
+  F(F<S>),
+  C(F<S>),
   B(bool),
   Str(Txt),
   Sym(Sym),
-  Ext(Ext)
+  Ext(S::Extension)
 }
 
-impl<Ext:ExtType> TypeTag for V<Ext> {
+impl<S:Fort> TypeTag for V<S> {
   fn tag(&self) -> &'static str {
     match self {
       V::Z(_) => "float",
@@ -59,7 +45,7 @@ impl<Ext:ExtType> TypeTag for V<Ext> {
   }
 }
 
-impl<Ext:ExtType> Display for V<Ext> {
+impl<S:Fort> Display for V<S> {
   fn fmt(&self,f:&mut Formatter) -> Result<(),FmtErr> {
     match self {
       
@@ -94,17 +80,50 @@ impl<Ext:ExtType> Display for V<Ext> {
   }
 }
 
+impl<S:Fort> PartialEq for V<S> {
+  fn eq(&self,o:&Self) -> bool {
+    match (self,o) {
+      (V::Z(v),V::Z(v2)) => v == v2, 
+      (V::L(v),V::L(v2)) => v == v2,
+      (V::I(v),V::I(v2)) => v == v2,
+      (V::F(v),V::F(v2)) => v == v2,
+      (V::C(v),V::C(v2)) => v == v2,
+      (V::B(v),V::B(v2)) => v == v2,
+      (V::Str(v),V::Str(v2)) => v == v2,
+      (V::Sym(v),V::Sym(v2)) => v == v2,
+      (V::Ext(v),V::Ext(v2)) => v == v2,
+      _ => false
+    }
+  }
+}
+
+impl<S:Fort> Clone for V<S> {
+  fn clone(&self) -> Self {
+    match self {
+      V::Z(v) => V::Z(*v),
+      V::L(v) => V::L(v.clone()),
+      V::I(v) => V::I(*v),
+      V::F(v) => V::F(v.clone()),
+      V::C(v) => V::C(v.clone()),
+      V::B(v) => V::B(*v),
+      V::Str(v) => V::Str(v.clone()),
+      V::Sym(v) => V::Sym(v.clone()),
+      V::Ext(v) => V::Ext(v.clone()),
+    }
+  }
+}
+
 macro_rules! vtraits {
   ($TYP:ty, $VTYP:ident,$tag:literal) => {
-    impl<Ext:ExtType> From<$TYP> for V<Ext> {
+    impl<S:Fort> From<$TYP> for V<S> {
       fn from(t:$TYP) -> Self {
         V::$VTYP(t)
       }
     }
 
-    impl<Ext:ExtType> TryFrom<V<Ext>> for $TYP {
-      type Error=V<Ext>;
-      fn try_from(v:V<Ext>) -> Result<Self,V<Ext>> {
+    impl<S:Fort> TryFrom<V<S>> for $TYP {
+      type Error=V<S>;
+      fn try_from(v:V<S>) -> Result<Self,V<S>> {
         match v {
           V::$VTYP(n) => Ok(n),
           _ => Err(v)
@@ -117,8 +136,6 @@ macro_rules! vtraits {
         $tag
       }
     }
-
-    impl<Ext:ExtType> VType<Ext> for $TYP {}
   }
 }
 
@@ -129,13 +146,13 @@ vtraits!{Txt,Str,"string"}
 vtraits!{Sym,Sym,"symbol"}
 
 //gotta do it manually for F and list for now
-impl<Ext:ExtType> TaggedType for Arc<[V<Ext>]> {
+impl<S:Fort> TaggedType for Arc<[V<S>]> {
   fn type_tag() -> &'static str { "list" }
 }
 
-impl<Ext:ExtType> TryFrom<V<Ext>> for Arc<[V<Ext>]> {
-  type Error=V<Ext>;
-  fn try_from(v:V<Ext>) -> Result<Arc<[V<Ext>]>,V<Ext>> {
+impl<S:Fort> TryFrom<V<S>> for Arc<[V<S>]> {
+  type Error=V<S>;
+  fn try_from(v:V<S>) -> Result<Arc<[V<S>]>,V<S>> {
     match v {
       V::L(n) => Ok(n),
       _ => Err(v)
@@ -143,19 +160,17 @@ impl<Ext:ExtType> TryFrom<V<Ext>> for Arc<[V<Ext>]> {
   }
 }
 
-impl<Ext:ExtType> From<Arc<[V<Ext>]>> for V<Ext> {
-  fn from(lst:Arc<[V<Ext>]>) -> V<Ext> { V::L(lst) }
+impl<S:Fort> From<Arc<[V<S>]>> for V<S> {
+  fn from(lst:Arc<[V<S>]>) -> V<S> { V::L(lst) }
 }
 
-impl<Ext:ExtType> VType<Ext> for Arc<[V<Ext>]> {}
-
-impl<Ext:ExtType> TaggedType for F<Ext> {
+impl<S:Fort> TaggedType for F<S> {
   fn type_tag() -> &'static str { "function" }
 }
 
-impl<Ext:ExtType> TryFrom<V<Ext>> for F<Ext>{
-  type Error=V<Ext>;
-  fn try_from(v:V<Ext>) -> Result<F<Ext>,V<Ext>> {
+impl<S:Fort> TryFrom<V<S>> for F<S>{
+  type Error=V<S>;
+  fn try_from(v:V<S>) -> Result<F<S>,V<S>> {
     match v {
       V::F(n) => Ok(n),
       _ => Err(v)
@@ -163,8 +178,6 @@ impl<Ext:ExtType> TryFrom<V<Ext>> for F<Ext>{
   }
 }
 
-impl<Ext:ExtType> From<F<Ext>> for V<Ext> {
-  fn from(f:F<Ext>) -> V<Ext> { V::F(f) }
+impl<S:Fort> From<F<S>> for V<S> {
+  fn from(f:F<S>) -> V<S> { V::F(f) }
 }
-
-impl<Ext:ExtType> VType<Ext> for F<Ext> {}

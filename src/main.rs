@@ -1,3 +1,5 @@
+mod traits;
+
 mod text;
 use text::*;
 mod values;
@@ -15,6 +17,19 @@ mod bifs;
 mod vm;
 use vm::Thread;
 
+pub struct Basic {}
+
+impl traits::TypeTag for u8 {
+  fn tag(&self) -> &'static str { "byte" }
+}
+
+impl traits::Fort for Basic {
+  type Extension=u8;
+  type Environment=();
+
+  fn default_env() {}
+}
+
 fn main() -> Result<(),Box<dyn std::error::Error>> {
   run_repl()?;
   Ok(())
@@ -23,9 +38,9 @@ fn main() -> Result<(),Box<dyn std::error::Error>> {
 fn run_repl() -> Result<(),Box<dyn std::error::Error>> {
   let mut buff = String::new();
   let stdin = std::io::stdin();
-  let mut dict = Dict::<u8>::new(bifs::built_ins::<u8>().into());
-  let mut repl = parser::Repl::default();
-  let mut vm = Thread::as_list(&mut dict);
+  let mut dict = Dict::<Basic>::new(bifs::built_ins::<Basic>().into());
+  let mut repl = parser::Repl::new();
+  let mut vm = Thread::as_list((),&mut dict);
 
   loop {
     if stdin.read_line(&mut buff).is_err() {
@@ -38,9 +53,4 @@ fn run_repl() -> Result<(),Box<dyn std::error::Error>> {
       Err(e) => println!("err {e}")
     };
   }
-}
-
-impl ExtType for u8 {}
-impl TypeTag for u8 {
-  fn tag(&self) -> &'static str { "byte" }
 }

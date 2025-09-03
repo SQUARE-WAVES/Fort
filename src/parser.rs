@@ -1,7 +1,8 @@
 use crate::{
-  V,ExtType,
+  V,
   F,
   Dict,
+  traits::Fort,
   vm::{
     Thread,
     Error as VMErr,
@@ -14,15 +15,22 @@ use crate::{
   }
 };
 
-#[derive(Default)]
-pub struct Repl<Ext:ExtType> {
+pub struct Repl<S:Fort> {
   st:St,
   pos:usize,
-  _g:std::marker::PhantomData<Ext>
+  _g:std::marker::PhantomData<S>
 }
 
-impl<Ext:ExtType> Repl<Ext> {
-  pub fn buff(&mut self,vm:&mut Thread<Ext> ,buff:&mut String) -> Result<(),Error> {
+impl<S:Fort> Repl<S> {
+  pub fn new() -> Self {
+    Self {
+      st:Default::default(),
+      pos:Default::default(),
+      _g:Default::default()
+    }
+  }
+
+  pub fn buff(&mut self,vm:&mut Thread<S> ,buff:&mut String) -> Result<(),Error> {
     let input = &buff[..];
     let mut lx = Scanner::resume(input,self.pos,self.st);
 
@@ -58,13 +66,13 @@ impl<Ext:ExtType> Repl<Ext> {
   }
 }
 
-pub fn load_file<Ext,P>(p:P,d:&mut Dict<Ext>) -> Result<F<Ext>,Error> 
+pub fn load_file<S,P>(p:P,d:&mut Dict<S>) -> Result<F<S>,Error> 
 where 
-  Ext:ExtType, 
+  S:Fort, 
   P:AsRef<std::path::Path>
 {
   let f = std::fs::read_to_string(p).map_err(Error::Fs)?;
-  let mut vm = Thread::as_def(d);
+  let mut vm = Thread::as_def(S::default_env(),d);
   let mut lx = Scanner::resume(&f[..],0,St::Base);
 
   let th = loop {
@@ -110,7 +118,7 @@ where
   Ok(vf)
 }
 
-fn push_token<Ext:ExtType>(vm:&mut Thread<Ext>,tk:T) -> Result<(),VMErr> {
+fn push_token<S:Fort>(vm:&mut Thread<S>,tk:T) -> Result<(),VMErr> {
   let res = match tk {
     T::OpenParen => {
       vm.start_def();

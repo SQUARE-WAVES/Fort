@@ -1,16 +1,18 @@
 use crate::{
-  V,F,ExtType,
+  V,
+  F,
   Vstack,
-  Dict
+  Dict,
+  traits::Fort
 };
 
 #[derive(Debug)]
-pub enum Mode<Ext:ExtType> {
-  List(Vstack<V<Ext>>),
-  Def(Vstack<V<Ext>>),
+pub enum Mode<S:Fort> {
+  List(Vstack<V<S>>),
+  Def(Vstack<V<S>>),
 }
 
-impl<Ext:ExtType> Mode<Ext> {
+impl<S:Fort> Mode<S> {
   pub fn def() -> Self {
     Self::Def(Default::default())
   }
@@ -19,14 +21,14 @@ impl<Ext:ExtType> Mode<Ext> {
     Self::List(Default::default())
   }
 
-  pub fn vs(&mut self) -> &mut Vstack<V<Ext>> {
+  pub fn vs(&mut self) -> &mut Vstack<V<S>> {
     match self {
       Self::List(stk) => stk,
       Self::Def(stk) => stk
     }
   }
 
-  pub fn end(self) -> Vstack<V<Ext>> {
+  pub fn end(self) -> Vstack<V<S>> {
     match self {
       Self::List(stk) => stk,
       Self::Def(stk) => stk
@@ -34,7 +36,7 @@ impl<Ext:ExtType> Mode<Ext> {
   }
 }
 
-impl<Ext:ExtType> std::fmt::Display for Mode<Ext> {
+impl<S:Fort> std::fmt::Display for Mode<S> {
   fn fmt(&self,f: &mut std::fmt::Formatter) -> Result<(),std::fmt::Error> {
     match self {
       Self::List(vs) => write!(f,"[{vs}"),
@@ -43,24 +45,27 @@ impl<Ext:ExtType> std::fmt::Display for Mode<Ext> {
   }
 }
 
-pub struct Thread<'a,Ext:ExtType> {
-  root:Mode<Ext>,
-  dict:&'a mut Dict<Ext>,
-  mode_stack:Vec<Mode<Ext>>,
+pub struct Thread<'a,S:Fort> {
+  root:Mode<S>,
+  env:S::Environment,
+  dict:&'a mut Dict<S>,
+  mode_stack:Vec<Mode<S>>,
 }
 
-impl<'a,Ext:ExtType> Thread<'a,Ext> {
-  pub fn as_list(dict:&'a mut Dict<Ext>) -> Self {
+impl<'a,S:Fort> Thread<'a,S> {
+  pub fn as_list(env:S::Environment,dict:&'a mut Dict<S>) -> Self {
     Self {
       root:Mode::list(),
+      env,
       mode_stack:vec![],
       dict
     }
   }
 
-  pub fn as_def(dict:&'a mut Dict<Ext>) -> Self {
+  pub fn as_def(env:S::Environment,dict:&'a mut Dict<S>) -> Self {
     Self {
       root:Mode::list(),
+      env,
       mode_stack:vec![],
       dict
     }
@@ -128,11 +133,11 @@ impl<'a,Ext:ExtType> Thread<'a,Ext> {
     Ok(())
   }
 
-  pub fn push_val(&mut self,val:V<Ext>) {
+  pub fn push_val(&mut self,val:V<S>) {
     self.stk().push(val)
   }
 
-  pub fn apply(&mut self,call:F<Ext>) -> Result<(),Error> {
+  pub fn apply(&mut self,call:F<S>) -> Result<(),Error> {
     let md = self.mode();
 
     match md {
@@ -144,7 +149,7 @@ impl<'a,Ext:ExtType> Thread<'a,Ext> {
     }
   }
 
-  pub fn lookup(&mut self,nm:&str) -> Result<F<Ext>,Error> {
+  pub fn lookup(&mut self,nm:&str) -> Result<F<S>,Error> {
     self.dict.get(nm).map_err(Error::Dictionary).cloned()
   }
 
@@ -161,7 +166,7 @@ impl<'a,Ext:ExtType> Thread<'a,Ext> {
   }
 
   //ending stuff
-  pub fn into_function(self) -> Result<F<Ext>,Error> {
+  pub fn into_function(self) -> Result<F<S>,Error> {
     self.mode_stack.is_empty().then(||{
       F::Anon(self.root.end().into())
     })
@@ -169,16 +174,24 @@ impl<'a,Ext:ExtType> Thread<'a,Ext> {
   }
 
   //helpos
-  pub fn stk(&mut self) -> &mut Vstack<V<Ext>> {
+  pub fn stk(&mut self) -> &mut Vstack<V<S>> {
     self.mode_stack.last_mut().unwrap_or(&mut self.root).vs()
   }
 
-  pub fn dict(&mut self) -> &mut Dict<Ext> {
+  pub fn dict(&mut self) -> &mut Dict<S> {
     self.dict
   }
 
-  fn mode(&mut self) -> &mut Mode<Ext> {
+  fn mode(&mut self) -> &mut Mode<S> {
     self.mode_stack.last_mut().unwrap_or(&mut self.root)
+  }
+
+  pub fn env(&self) -> &S::Environment {
+    &self.env
+  }
+
+  pub fn env_mut(&mut self) -> &mut S::Environment {
+    &mut self.env
   }
 }
 

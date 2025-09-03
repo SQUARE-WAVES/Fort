@@ -1,14 +1,15 @@
 use std::sync::Arc;
 use crate::{
   V,
-  ExtType,
-  TypeTag,
   Txt,
-  //Sym,
-  VType,
   F,
   Thread,
-  Vstack
+  Vstack,
+  traits::{
+    Fort,
+    TypeTag,
+    StackType
+  }
 };
 
 mod stack;
@@ -16,7 +17,34 @@ mod math;
 mod functional;
 mod util;
 
-pub fn built_ins<E:ExtType>() -> std::collections::HashMap<Arc<str>,F<E>> {
+pub struct Bif<S:Fort>(fn(&mut Thread<S>) -> Result<(),Error>);
+
+impl<S:Fort> Bif<S> {
+  pub fn call(&self,th:&mut Thread<S>) -> Result<(),Error> {
+    (self.0)(th)
+  }
+}
+
+impl<S:Fort> Clone for Bif<S> {
+  fn clone(&self) -> Bif<S> {
+    Bif(self.0)
+  }
+}
+
+impl<S:Fort> From<fn(&mut Thread<S>) -> Result<(),Error>> for Bif<S> {
+  fn from(f:fn(&mut Thread<S>) -> Result<(),Error>) -> Self {
+    Self(f)
+  }
+}
+
+impl<S:Fort> PartialEq for Bif<S> {
+  fn eq(&self,o:&Self) -> bool {
+    let(Self(n),Self(m)) = (self,o);
+    std::ptr::fn_addr_eq(*n,*m)
+  }
+}
+
+pub fn built_ins<S:Fort>() -> std::collections::HashMap<Arc<str>,F<S>> {
   std::collections::HashMap::from([
     def("dup","a --> a a",stack::dup),
     def("clear","as.. --> Empty",stack::clear),
@@ -65,10 +93,13 @@ impl std::fmt::Display for Error {
 
 impl std::error::Error for Error{}
 
-
 //------------------------------------------------------------------------------------------------
 //Utilities for writing BIFs 
-pub fn tpop<E:ExtType,Val:VType<E>>(stk:&mut Vstack<V<E>>,name:&'static str) -> Result<Val,Error> {
+pub fn tpop<S,Val>(stk:&mut Vstack<V<S>>,name:&'static str) -> Result<Val,Error> 
+where 
+  S:Fort,
+  Val:StackType<V<S>>
+{
   let res = stk.pop::<Val>().ok_or(Error::Underflow(name))?;
   match res {
     Ok(p) => Ok(p),
@@ -80,11 +111,13 @@ pub fn tpop<E:ExtType,Val:VType<E>>(stk:&mut Vstack<V<E>>,name:&'static str) -> 
   }
 }
 
-pub fn param<E:ExtType>(stk:&mut Vstack<V<E>>,name:&'static str) -> Result<V<E>,Error> {
+pub fn param<S:Fort>(stk:&mut Vstack<V<S>>,name:&'static str) -> Result<V<S>,Error> {
   stk.popv().ok_or(Error::Underflow(name))
 }
 
-pub fn def<E:ExtType>(nm:&'static str,doc:&'static str,f:fn(&mut Thread<E>)->Result<(),Error>) -> (Arc<str>,F<E>) {
+type BifType<S> = fn(&mut Thread<S>) -> Result<(),Error>;
+
+pub fn def<S:Fort>(nm:&'static str,doc:&'static str,f:BifType<S>) -> (Arc<str>,F<S>) {
   let bif = F::Bif(nm,doc,f.into());
   (nm.into(),bif)
 }

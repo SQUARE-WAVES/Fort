@@ -5,29 +5,30 @@ use std::{
 
 use crate::{
   F,
-  V,ExtType,
+  V,
+  traits::Fort
 };
 
-pub struct Scope<Ext:ExtType> {
-  words:HashMap<Arc<str>,F<Ext>>
+pub struct Scope<S:Fort> {
+  words:HashMap<Arc<str>,F<S>>
 }
 
-impl<Ext:ExtType> From<HashMap<Arc<str>,F<Ext>>> for Scope<Ext> {
-  fn from(words:HashMap<Arc<str>,F<Ext>>) -> Self {
+impl<S:Fort> From<HashMap<Arc<str>,F<S>>> for Scope<S> {
+  fn from(words:HashMap<Arc<str>,F<S>>) -> Self {
     Self{words}
   }
 }
 
-impl<Ext:ExtType> Scope<Ext> {
+impl<S:Fort> Scope<S> {
   pub fn new() -> Self {
     Self {words:Default::default()}
   }
 
-  pub fn get(&self,key:&str) -> Option<&F<Ext>> {
+  pub fn get(&self,key:&str) -> Option<&F<S>> {
     self.words.get(key)
   }
 
-  pub fn define<T1>(&mut self,vs:Arc<[V<Ext>]>,name:T1) -> F<Ext>
+  pub fn define<T1>(&mut self,vs:Arc<[V<S>]>,name:T1) -> F<S>
   where
     T1:Into<Option<Arc<str>>>,
   {
@@ -42,13 +43,13 @@ impl<Ext:ExtType> Scope<Ext> {
   }
 }
 
-pub struct Dict<Ext:ExtType> {
-  root:Scope<Ext>,
-  stk:Vec<Scope<Ext>>
+pub struct Dict<S:Fort> {
+  root:Scope<S>,
+  stk:Vec<Scope<S>>
 }
 
-impl<Ext:ExtType> Dict<Ext> {
-  pub fn new(root:Scope<Ext>) -> Self {
+impl<S:Fort> Dict<S> {
+  pub fn new(root:Scope<S>) -> Self {
     Self {
       root,
       stk:vec![]
@@ -56,7 +57,7 @@ impl<Ext:ExtType> Dict<Ext> {
   }
 
   pub fn push_scope(&mut self) {
-    self.stk.push(Scope::<Ext>::new())
+    self.stk.push(Scope::<S>::new())
   }
 
   pub fn pop_scope(&mut self) {
@@ -65,7 +66,7 @@ impl<Ext:ExtType> Dict<Ext> {
     }
   }
 
-  pub fn get(&self,key:&str) -> Result<&F<Ext>,Error> {
+  pub fn get(&self,key:&str) -> Result<&F<S>,Error> {
     for scope in self.stk.iter().rev() {
       if let Some(f) = scope.get(key) { 
         return Ok(f) 
@@ -75,7 +76,7 @@ impl<Ext:ExtType> Dict<Ext> {
     self.root.get(key).ok_or(Error::UnknownWord)
   }
 
-  pub fn define<T1>(&mut self,vs:Arc<[V<Ext>]>,name:T1) -> F<Ext>
+  pub fn define<T1>(&mut self,vs:Arc<[V<S>]>,name:T1) -> F<S>
   where
     T1:Into<Option<Arc<str>>>
   {

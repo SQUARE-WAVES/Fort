@@ -1,5 +1,6 @@
 use super::{
-  Thread,ExtType,
+  Thread,
+  Fort,
   Error,
   F,
   V,
@@ -7,7 +8,7 @@ use super::{
   tpop
 };
 
-fn print_vs<E:ExtType>(vs:&[V<E>]) {
+fn print_vs<S:Fort>(vs:&[V<S>]) {
   if vs.is_empty() {
     println!("()");
   }
@@ -20,9 +21,9 @@ fn print_vs<E:ExtType>(vs:&[V<E>]) {
   }
 }
 
-pub fn doc<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn doc<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   let stk=th.stk();
-  let f : F<E> = tpop(stk,"proc")?;
+  let f : F<S> = tpop(stk,"proc")?;
   match &f {
     F::Bif(nm,d,_) => {
       println!("[[ {nm} ]]");
@@ -43,12 +44,12 @@ pub fn doc<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn print<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn print<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   th.print();
   Ok(())
 }
 
-pub fn do_file<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
+pub fn do_file<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   let path : Txt = tpop(th.stk(),"path")?;
   let path : &str = &path; //gotta do this for the as_ref trait to kick in
   let d = th.dict();
