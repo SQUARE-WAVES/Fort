@@ -3,6 +3,7 @@ use super::{
   Error,
   F,
   V,
+  Txt,
   tpop
 };
 
@@ -48,8 +49,7 @@ pub fn print<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
 }
 
 pub fn do_file<E:ExtType>(th:&mut Thread<E>) -> Result<(),Error> {
-  use std::sync::Arc;
-  let path : Arc<str> = tpop(th.stk(),"path")?;
+  let path : Txt = tpop(th.stk(),"path")?;
   let path : &str = &path; //gotta do this for the as_ref trait to kick in
   let d = th.dict();
   match crate::parser::load_file(path,d) {

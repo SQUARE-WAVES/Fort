@@ -6,7 +6,27 @@ use crate::{
   bifs::Error as BifError
 };
 
-pub type Bif<Ext:ExtType> = fn(&mut Thread<Ext>) -> Result<(),BifError>;
+#[derive(Debug,Clone)]
+pub struct Bif<E:ExtType>(fn(&mut Thread<E>) -> Result<(),BifError>);
+
+impl<E:ExtType> Bif<E> {
+  pub fn call(&self,th:&mut Thread<E>) -> Result<(),BifError> {
+    (self.0)(th)
+  }
+}
+
+impl<E:ExtType> From<fn(&mut Thread<E>) -> Result<(),BifError>> for Bif<E> {
+  fn from(f:fn(&mut Thread<E>) -> Result<(),BifError>) -> Self {
+    Self(f)
+  }
+}
+
+impl<E:ExtType> PartialEq for Bif<E> {
+  fn eq(&self,o:&Self) -> bool {
+    let(Self(n),Self(m)) = (self,o);
+    std::ptr::fn_addr_eq(*n,*m)
+  }
+}
 
 #[derive(Debug,Clone)]
 pub enum F<Ext:ExtType> {
@@ -28,7 +48,7 @@ impl<Ext:ExtType> std::fmt::Display for F<Ext> {
 impl<Ext:ExtType> PartialEq for F<Ext> {
   fn eq(&self,other:&F<Ext>) -> bool {
     match (self,other) {
-      (Self::Bif(_,_,n), Self::Bif(_,_,m)) => std::ptr::fn_addr_eq(*n,*m),
+      (Self::Bif(_,_,n), Self::Bif(_,_,m)) => n==m,
       (Self::Def(_,a), Self::Def(_,b)) => Arc::ptr_eq(a,b),
       (Self::Anon(a), Self::Anon(b)) => Arc::ptr_eq(a,b),
       _ => false
@@ -39,7 +59,7 @@ impl<Ext:ExtType> PartialEq for F<Ext> {
 impl<Ext:ExtType> F<Ext> {
   pub fn run(&self,th:&mut Thread<Ext>) -> Result<(),BifError> {
     match self {
-      Self::Bif(_,_,f) => f(th),
+      Self::Bif(_,_,f) => f.call(th),
 
       Self::Def(_,arc) => {
         for v in arc.iter() {

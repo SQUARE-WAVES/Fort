@@ -3,10 +3,11 @@ use crate::{
   V,
   ExtType,
   TypeTag,
+  Txt,
+  //Sym,
   VType,
   F,
   Thread,
-  functions::Bif,
   Vstack
 };
 
@@ -83,7 +84,7 @@ pub fn param<E:ExtType>(stk:&mut Vstack<V<E>>,name:&'static str) -> Result<V<E>,
   stk.popv().ok_or(Error::Underflow(name))
 }
 
-fn def<E:ExtType>(nm:&'static str,doc:&'static str,f:Bif<E>) -> (Arc<str>,F<E>) {
-  let bif = F::Bif(nm,doc,f);
+pub fn def<E:ExtType>(nm:&'static str,doc:&'static str,f:fn(&mut Thread<E>)->Result<(),Error>) -> (Arc<str>,F<E>) {
+  let bif = F::Bif(nm,doc,f.into());
   (nm.into(),bif)
 }

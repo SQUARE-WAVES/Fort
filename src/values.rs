@@ -5,7 +5,10 @@ use std::fmt::{
 };
 
 use std::sync::Arc;
-use crate::functions::F;
+use crate::{
+  Txt,Sym,
+  functions::F
+};
 
 //-----------------------------------------------------------------------------
 //OH BOY A BUNCH OF TRAITS
@@ -35,9 +38,9 @@ pub enum V<Ext:ExtType> {
   F(F<Ext>),
   C(F<Ext>),
   B(bool),
-  Str(Arc<str>),
+  Str(Txt),
+  Sym(Sym),
   Ext(Ext)
-  //Sym(Arc<str>),
 }
 
 impl<Ext:ExtType> TypeTag for V<Ext> {
@@ -50,8 +53,8 @@ impl<Ext:ExtType> TypeTag for V<Ext> {
       V::C(_) => "function call",
       V::B(_) => "bool",
       V::Str(_) => "string",
+      V::Sym(_) => "symbol",
       V::Ext(n) => n.tag()
-      //V::Sym(_) => "symbol"
     }
   }
 }
@@ -85,8 +88,8 @@ impl<Ext:ExtType> Display for V<Ext> {
 
       Self::B(n) => write!(f,"{n}"),
       Self::Str(n) => write!(f,r#""{n}""#),
+      Self::Sym(n) => write!(f,"Sym< {n} >"),
       Self::Ext(n) => write!(f,"{n}")
-      //Self::Sym(n) => write!(f,"Sym[[ {n} ]]"),
     }
   }
 }
@@ -122,8 +125,8 @@ macro_rules! vtraits {
 vtraits!{f64,Z,"float"}
 vtraits!{i64,I,"int"}
 vtraits!{bool,B,"bool"}
-vtraits!{Arc<str>,Str,"string"}
-
+vtraits!{Txt,Str,"string"}
+vtraits!{Sym,Sym,"symbol"}
 
 //gotta do it manually for F and list for now
 impl<Ext:ExtType> TaggedType for Arc<[V<Ext>]> {

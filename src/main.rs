@@ -1,3 +1,5 @@
+mod text;
+use text::*;
 mod values;
 use values::*;
 mod vstack;
@@ -12,8 +14,6 @@ mod parser;
 mod bifs;
 mod vm;
 use vm::Thread;
-
-//mod sys;
 
 fn main() -> Result<(),Box<dyn std::error::Error>> {
   run_repl()?;
