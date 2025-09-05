@@ -13,6 +13,7 @@ use crate::{
   }
 };
 
+#[derive(Default)]
 pub struct Repl<S:Fort> {
   st:St,
   pos:usize,
@@ -40,6 +41,7 @@ impl<S:Fort> Repl<S> {
           self.st = st;
           self.pos = pos;
           buff.drain(0..eaten);
+          vm.print();
           return Ok(())
         },
         Err(e) => {
@@ -61,6 +63,7 @@ impl<S:Fort> Repl<S> {
         }
       }
     }
+
   }
 }
 

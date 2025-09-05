@@ -9,13 +9,14 @@ use crate::{
   traits::Fort
 };
 
+#[derive(Default)]
 pub struct Scope<S:Fort> {
   words:HashMap<Arc<str>,F<S>>
 }
 
-impl<S:Fort> From<HashMap<Arc<str>,F<S>>> for Scope<S> {
-  fn from(words:HashMap<Arc<str>,F<S>>) -> Self {
-    Self{words}
+impl<S:Fort,T:Into<HashMap<Arc<str>,F<S>>>> From<T> for Scope<S> {
+  fn from(wordbase:T) -> Self {
+    Self{words:wordbase.into()}
   }
 }
 
@@ -26,6 +27,14 @@ impl<S:Fort> Scope<S> {
 
   pub fn lookup(&self,key:&str) -> Option<&F<S>> {
     self.words.get(key)
+  }
+
+  pub fn merge(mut self, other:Scope<S>) -> Scope<S> {
+    for (k,v) in other.words {
+      self.words.insert(k,v);
+    }
+
+    self
   }
 
   pub fn define<T1>(&mut self,vs:Arc<[V<S>]>,name:T1) -> F<S>

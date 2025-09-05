@@ -4,6 +4,7 @@ use crate::{
   Txt,
   F,
   Thread,
+  Scope,
   traits::{
     Fort,
     TypeTag,
@@ -43,8 +44,8 @@ impl<S:Fort> PartialEq for Bif<S> {
   }
 }
 
-pub fn built_ins<S:Fort>() -> std::collections::HashMap<Arc<str>,F<S>> {
-  std::collections::HashMap::from([
+pub fn built_ins<S:Fort>() -> Scope<S> {
+  Scope::from([
     def("dup","a --> a a",stack::dup),
     def("clear","as.. --> Empty",stack::clear),
     def("swap","a b --> b a",stack::swap),
