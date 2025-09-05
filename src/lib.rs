@@ -1,18 +1,27 @@
+//OK here is the virtual machine stuff, nothing to do with parsing or tokens or whaver
 pub mod traits;
-pub use traits::Fort;
-
-pub mod text;
-pub use text::*;
 pub mod values;
-pub use values::*;
-pub mod frame_stack;
-pub use frame_stack::FrameStack;
-pub mod tokens;
-pub mod dictionary;
-pub use dictionary::*;
+pub mod text;
 pub mod functions;
-pub use functions::F;
-pub mod parser;
-pub mod bifs;
+pub mod dictionary;
+pub mod frame_stack;
 pub mod vm;
-pub use vm::Thread;
+
+//here is the built in stuff that helps you do things
+pub mod bifs;
+pub mod tokens;
+pub mod parser;
+
+pub use {
+  traits::{
+    Fort,
+    TypeTag,
+    TaggedType
+  },
+  values::V,
+  text::{Txt,Sym},
+  functions::F,
+  dictionary::{Dict,Scope},
+  frame_stack::FrameStack,
+  vm::Thread
+};
