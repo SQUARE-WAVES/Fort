@@ -10,9 +10,8 @@ pub enum Token<'a> {
   QWord(&'a str),
   I(i64),
   Z(f64),
-  Str(&'a str)
-
-  //SymWord(&'a str),
+  Str(&'a str),
+  Sym(&'a str)
 }
 
 #[derive(Default,Debug,PartialEq,Clone,Copy)]
@@ -22,6 +21,7 @@ pub enum St {
   Minus,
   Word,
   Qw,
+  Sw,
   Num,
   Float,
   Str,
@@ -85,6 +85,7 @@ impl<'a> Scanner<'a> {
       St::Base => self.base_state(c),
       St::Word => self.word_state(c),
       St::Qw => self.qw_state(c),
+      St::Sw => self.qw_state(c),
       St::Num => self.num_state(c),
       St::Float => self.float_state(c),
       St::Str => self.str_state(c),
@@ -112,6 +113,7 @@ impl<'a> Scanner<'a> {
       '-' => self.advance(c,St::Minus),
       '"' => self.advance(c,St::Str),
       '`' => self.advance(c,St::Qw),
+      '\'' => self.advance(c,St::Sw),
       _ if c.is_alphabetic() || word_start(c) => self.advance(c,St::Word),
       _ if c.is_numeric() =>  self.advance(c,St::Num),
       _ if c.is_whitespace() => self.advance(c,St::Base),
@@ -163,6 +165,9 @@ impl<'a> Scanner<'a> {
     }
     else if let Some(w) = work.strip_prefix("`") {
       Token::QWord(w)
+    }
+    else if let Some(w) = work.strip_prefix("'") {
+      Token::Sym(w)
     }
     else if work == "true" {
       Token::True

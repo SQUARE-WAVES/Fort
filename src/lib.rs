@@ -12,6 +12,9 @@ pub mod bifs;
 pub mod tokens;
 pub mod parser;
 
+//these are the big public re-exports
+//you should be able to more or less
+//get what you want using these alone
 pub use {
   traits::{
     Fort,

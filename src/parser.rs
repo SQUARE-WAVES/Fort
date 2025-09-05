@@ -154,7 +154,11 @@ fn push_token<S:Fort>(vm:&mut Thread<S>,tk:T) -> Result<(),VMErr> {
     }
 
     T::Word(nm) => vm.word(nm),
-    T::QWord(nm) => vm.quote(nm)
+    T::QWord(nm) => vm.quote(nm),
+    T::Sym(nm) => {
+      vm.push(V::Sym(nm.into()));
+      Ok(())
+    },
   };
 
   if res.is_err() {

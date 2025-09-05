@@ -2,11 +2,32 @@ use std::sync::Arc;
 use super::{
   V,
   Fort,
+  TypeTag,
   F,
   Thread,
   Error,
-  tpop
+  tpop,
+  param
 };
+
+pub fn call<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
+  let p = param(th,"process")?;
+
+  match p {
+    V::F(proc) => {
+      proc.run(th)?;
+    },
+    V::Sym(nm) => {
+      let proc = th.lookup(&nm).map_err(|_|Error::Internal("symbol not defined"))?;
+      proc.clone().run(th)?;
+    },
+    other => { 
+      Err(Error::PType("process","symbol",other.tag()))?;
+    }
+  };
+
+  Ok(())
+}
 
 pub fn map<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   let proc : F<S> = tpop(th,"proc")?;
@@ -21,12 +42,6 @@ pub fn map<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
 
   th.end_list().expect("PANIC, list didn't end for map fn");
 
-  Ok(())
-}
-
-pub fn call<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  let proc : F<S> = tpop(th,"proc")?;
-  proc.run(th)?;
   Ok(())
 }
 
