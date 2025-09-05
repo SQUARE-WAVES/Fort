@@ -4,7 +4,6 @@ use crate::{
   Txt,
   F,
   Thread,
-  Vstack,
   traits::{
     Fort,
     TypeTag,
@@ -95,24 +94,24 @@ impl std::error::Error for Error{}
 
 //------------------------------------------------------------------------------------------------
 //Utilities for writing BIFs 
-pub fn tpop<S,Val>(stk:&mut Vstack<V<S>>,name:&'static str) -> Result<Val,Error> 
+pub fn tpop<S,Val>(th:&mut Thread<S>,name:&'static str) -> Result<Val,Error> 
 where 
   S:Fort,
   Val:StackType<V<S>>
 {
-  let res = stk.pop::<Val>().ok_or(Error::Underflow(name))?;
+  let res = th.pop::<Val>().ok_or(Error::Underflow(name))?;
   match res {
     Ok(p) => Ok(p),
     Err(v) => {
       let out = Error::PType(name,Val::type_tag(),v.tag());
-      stk.push(v);
+      th.push(v);
       Err(out)
     }
   }
 }
 
-pub fn param<S:Fort>(stk:&mut Vstack<V<S>>,name:&'static str) -> Result<V<S>,Error> {
-  stk.popv().ok_or(Error::Underflow(name))
+pub fn param<S:Fort>(th:&mut Thread<S>,name:&'static str) -> Result<V<S>,Error> {
+  th.popv().ok_or(Error::Underflow(name))
 }
 
 type BifType<S> = fn(&mut Thread<S>) -> Result<(),Error>;

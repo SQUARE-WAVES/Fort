@@ -24,7 +24,7 @@ impl<S:Fort> Scope<S> {
     Self {words:Default::default()}
   }
 
-  pub fn get(&self,key:&str) -> Option<&F<S>> {
+  pub fn lookup(&self,key:&str) -> Option<&F<S>> {
     self.words.get(key)
   }
 
@@ -61,19 +61,21 @@ impl<S:Fort> Dict<S> {
   }
 
   pub fn pop_scope(&mut self) {
-    if self.stk.len() > 1 {
-      self.stk.pop();
-    }
+    self.stk.pop();
   }
 
-  pub fn get(&self,key:&str) -> Result<&F<S>,Error> {
+  pub fn drop_all_scopes(&mut self) {
+    self.stk.clear();
+  }
+
+  pub fn lookup(&self,key:&str) -> Result<&F<S>,Error> {
     for scope in self.stk.iter().rev() {
-      if let Some(f) = scope.get(key) { 
+      if let Some(f) = scope.lookup(key) { 
         return Ok(f) 
       }
     }
 
-    self.root.get(key).ok_or(Error::UnknownWord)
+    self.root.lookup(key).ok_or(Error::UnknownWord)
   }
 
   pub fn define<T1>(&mut self,vs:Arc<[V<S>]>,name:T1) -> F<S>

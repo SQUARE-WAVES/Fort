@@ -6,7 +6,7 @@ use super::{
 };
 
 pub fn dup<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  let stk = th.stk();
+  let stk = th;
   let v = param(stk,"a")?;
   stk.push(v.clone());
   stk.push(v.clone());
@@ -14,7 +14,7 @@ pub fn dup<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
 }
 
 pub fn over<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  let stk = th.stk();
+  let stk = th;
   let b = param(stk,"b")?;
   let a = param(stk,"a")?;
   let ac = a.clone();
@@ -25,7 +25,7 @@ pub fn over<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
 }
 
 pub fn swap<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  let stk = th.stk();
+  let stk = th;
   let b = param(stk,"b")?;
   let a = param(stk,"a")?;
   stk.push(b);
@@ -34,7 +34,7 @@ pub fn swap<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
 }
 
 pub fn rot<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  let stk = th.stk();
+  let stk = th;
   let c = param(stk,"c")?;
   let b = param(stk,"b")?;
   let a = param(stk,"a")?;
@@ -45,12 +45,12 @@ pub fn rot<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
 }
 
 pub fn drop<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  let stk = th.stk();
+  let stk = th;
   let _ = stk.popv();
   Ok(())
 }
 
 pub fn clear<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  th.stk().clear();
+  th.clear();
   Ok(())
 }

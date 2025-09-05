@@ -22,8 +22,7 @@ fn print_vs<S:Fort>(vs:&[V<S>]) {
 }
 
 pub fn doc<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  let stk=th.stk();
-  let f : F<S> = tpop(stk,"proc")?;
+  let f : F<S> = tpop(th,"proc")?;
   match &f {
     F::Bif(nm,d,_) => {
       println!("[[ {nm} ]]");
@@ -40,7 +39,7 @@ pub fn doc<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   }
   println!("-------------------");
 
-  stk.push(f);
+  th.push(f);
   Ok(())
 }
 
@@ -50,11 +49,10 @@ pub fn print<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
 }
 
 pub fn do_file<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  let path : Txt = tpop(th.stk(),"path")?;
+  let path : Txt = tpop(th,"path")?;
   let path : &str = &path; //gotta do this for the as_ref trait to kick in
-  let d = th.dict();
-  match crate::parser::load_file(path,d) {
-    Ok(f) => f.run(th),
+  match crate::parser::load_file(path,th) {
+    Ok(_) => Ok(()),
     Err(e) => {
       println!("--file load error--");
       println!("{e:?}");

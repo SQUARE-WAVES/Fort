@@ -4,8 +4,8 @@ mod text;
 use text::*;
 mod values;
 use values::*;
-mod vstack;
-use vstack::*;
+mod frame_stack;
+use frame_stack::FrameStack;
 mod tokens;
 mod dictionary;
 use dictionary::*;
@@ -40,7 +40,7 @@ fn run_repl() -> Result<(),Box<dyn std::error::Error>> {
   let stdin = std::io::stdin();
   let mut dict = Dict::<Basic>::new(bifs::built_ins::<Basic>().into());
   let mut repl = parser::Repl::new();
-  let mut vm = Thread::as_list((),&mut dict);
+  let mut vm = Thread::new(&mut dict,());
 
   loop {
     if stdin.read_line(&mut buff).is_err() {

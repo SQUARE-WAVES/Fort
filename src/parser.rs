@@ -1,7 +1,5 @@
 use crate::{
   V,
-  F,
-  Dict,
   traits::Fort,
   vm::{
     Thread,
@@ -66,16 +64,15 @@ impl<S:Fort> Repl<S> {
   }
 }
 
-pub fn load_file<S,P>(p:P,d:&mut Dict<S>) -> Result<F<S>,Error> 
+pub fn load_file<S,P>(p:P,vm:&mut Thread<S>) -> Result<(),Error> 
 where 
   S:Fort, 
   P:AsRef<std::path::Path>
 {
   let f = std::fs::read_to_string(p).map_err(Error::Fs)?;
-  let mut vm = Thread::as_def(S::default_env(),d);
   let mut lx = Scanner::resume(&f[..],0,St::Base);
 
-  let th = loop {
+  loop {
     let tk = match lx.eat() {
       Ok(tk) => tk,
 
@@ -96,7 +93,7 @@ where
       }
     };
 
-    match push_token(&mut vm,tk) {
+    match push_token(vm,tk) {
       Ok(()) => (),
       Err(e) => {
         let (_,comp,pos) = lx.done();
@@ -113,9 +110,7 @@ where
     };
   };
 
-  let vf = th.into_function().map_err(Error::FileEnd)?;
-
-  Ok(vf)
+  Ok(())
 }
 
 fn push_token<S:Fort>(vm:&mut Thread<S>,tk:T) -> Result<(),VMErr> {
@@ -135,23 +130,23 @@ fn push_token<S:Fort>(vm:&mut Thread<S>,tk:T) -> Result<(),VMErr> {
     T::CloseBracket => vm.end_list(),
 
     T::True => { 
-      vm.push_val(V::B(true));
+      vm.push(V::B(true));
       Ok(())
     },
     T::False => {
-      vm.push_val(V::B(false)); 
+      vm.push(V::B(false)); 
       Ok(())
     },
     T::I(i) =>{ 
-      vm.push_val(V::I(i)); 
+      vm.push(V::I(i)); 
       Ok(())
     },
     T::Z(z) =>{ 
-      vm.push_val(V::Z(z));
+      vm.push(V::Z(z));
       Ok(())
     },
     T::Str(s) => {
-      vm.push_val(V::Str(s.into()));
+      vm.push(V::Str(s.into()));
       Ok(())
     }
 
@@ -171,7 +166,6 @@ pub enum Error {
   Fs(std::io::Error),
   FileSrc(TokErr,usize,usize),
   FileExec(VMErr,usize,usize),
-  FileEnd(VMErr),
   Scanner(TokErr),
   Exec(VMErr)
 }
@@ -181,7 +175,6 @@ impl std::fmt::Display for Error {
     match self {
       Self::FileSrc(x,s,e) => write!(f,"scan error in file pos: {s}-{e} : {x}"),
       Self::FileExec(x,s,e) => write!(f,"error executing tokens in file pos {s}-{e} : {x}"),
-      Self::FileEnd(x) => write!(f,"error executing tokens at end of file: {x}"),
       Self::Scanner(e) => write!(f,"error while scanning tokens {e}"),
       Self::Exec(e) => write!(f,"error in vm execution {e}"),
       Self::Fs(e)=> write!(f,"error reading file: {e}"),

@@ -1,7 +1,6 @@
 use super::{
   V,
   Fort,
-  Vstack,
   Thread,
   Error,
   param,
@@ -11,7 +10,7 @@ use super::{
 
 //this exists to avoid duplicating the type checking stuff
 //for every single math function
-fn two_op<S,II,FF>(stk:&mut Vstack<V<S>>,is:II,fs:FF) -> Result<(),Error> 
+fn two_op<S,II,FF>(stk:&mut Thread<S>,is:II,fs:FF) -> Result<(),Error> 
 where 
     S:Fort,
     II:FnOnce(i64,i64)->i64,
@@ -20,13 +19,13 @@ where
   match stk.peek(2) {
     [V::Z(a),V::Z(b)] => {
       let res = fs(*a,*b);
-      let _ = stk.drain(2);
+      let _ = stk.dropn(2);
       stk.push(res);
       Ok(())
     },
     [V::I(a),V::I(b)] => {
       let res = is(*a,*b);
-      let _ = stk.drain(2);
+      let _ = stk.dropn(2);
       stk.push(res);
       Ok(())
     },
@@ -40,24 +39,24 @@ where
 }
 
 pub fn add<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  two_op(th.stk(),|i1,i2|i1+i2,|f1,f2|f1+f2)
+  two_op(th,|i1,i2|i1+i2,|f1,f2|f1+f2)
 }
 
 pub fn sub<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  two_op(th.stk(),|i1,i2|i1-i2,|f1,f2|f1-f2)
+  two_op(th,|i1,i2|i1-i2,|f1,f2|f1-f2)
 }
 
 pub fn mul<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  two_op(th.stk(),|i1,i2|i1*i2,|f1,f2|f1*f2)
+  two_op(th,|i1,i2|i1*i2,|f1,f2|f1*f2)
 }
 
 pub fn div<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  two_op(th.stk(),|i1,i2|i1/i2,|f1,f2|f1/f2)
+  two_op(th,|i1,i2|i1/i2,|f1,f2|f1/f2)
 }
 
 //for the booleans
 pub fn eq<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  let stk = th.stk();
+  let stk = th;
   let a = param(stk,"a")?;
   let b = param(stk,"b")?;
   stk.push(a==b);
@@ -66,7 +65,7 @@ pub fn eq<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
 }
 
 pub fn neq<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  let stk = th.stk();
+  let stk = th;
   let a = param(stk,"a")?;
   let b = param(stk,"b")?;
   stk.push(a != b);
@@ -76,7 +75,7 @@ pub fn neq<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
 
 //TODO::check for better casting, I think these can panic
 pub fn to_int<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  let stk = th.stk();
+  let stk = th;
   let z :f64 = tpop(stk,"z")?;
   let i : i64 = z as i64;
   stk.push(i);
@@ -84,7 +83,7 @@ pub fn to_int<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
 }
 
 pub fn to_float<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
-  let stk = th.stk();
+  let stk = th;
   let i : i64= tpop(stk,"i")?;
   let z :f64 = i as f64;
   stk.push(z);

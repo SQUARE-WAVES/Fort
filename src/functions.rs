@@ -77,7 +77,7 @@ impl<S:Fort> F<S> {
               f.run(th)?;
             }
             x => {
-              th.push_val(x.clone());
+              th.push(x.clone());
             }
           };
         }
@@ -92,7 +92,7 @@ impl<S:Fort> F<S> {
               f.run(th)?;
             }
             x => {
-              th.push_val(x.clone())
+              th.push(x.clone())
             }
           };
         }
