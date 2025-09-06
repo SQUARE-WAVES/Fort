@@ -1,7 +1,6 @@
 use crate::{
   V,
-  F,
-  Dict,
+  traits::Fort,
   vm::{
     Thread,
     Error as VMErr,
@@ -15,13 +14,22 @@ use crate::{
 };
 
 #[derive(Default)]
-pub struct Repl {
+pub struct Repl<S:Fort> {
   st:St,
-  pos:usize
+  pos:usize,
+  _g:std::marker::PhantomData<S>
 }
 
-impl Repl {
-  pub fn buff(&mut self,vm:&mut Thread,buff:&mut String) -> Result<(),Error> {
+impl<S:Fort> Repl<S> {
+  pub fn new() -> Self {
+    Self {
+      st:Default::default(),
+      pos:Default::default(),
+      _g:Default::default()
+    }
+  }
+
+  pub fn buff(&mut self,vm:&mut Thread<S> ,buff:&mut String) -> Result<(),Error> {
     let input = &buff[..];
     let mut lx = Scanner::resume(input,self.pos,self.st);
 
@@ -33,6 +41,7 @@ impl Repl {
           self.st = st;
           self.pos = pos;
           buff.drain(0..eaten);
+          vm.print();
           return Ok(())
         },
         Err(e) => {
@@ -54,41 +63,60 @@ impl Repl {
         }
       }
     }
+
   }
 }
 
-pub fn load_file<P:AsRef<std::path::Path>>(p:P,dict:&mut Dict) -> Result<F,Error> {
+pub fn load_file<S,P>(p:P,vm:&mut Thread<S>) -> Result<(),Error> 
+where 
+  S:Fort, 
+  P:AsRef<std::path::Path>
+{
   let f = std::fs::read_to_string(p).map_err(Error::Fs)?;
-  let mut vm = Thread::as_def(dict);
   let mut lx = Scanner::resume(&f[..],0,St::Base);
 
-  let th = loop {
+  loop {
     let tk = match lx.eat() {
       Ok(tk) => tk,
+
       Err(TokErr::Done) => {
         break vm; 
       },
+
       Err(e) => {
         let (_,comp,pos) = lx.done();
+        /*
+        let end = comp+pos;
+        let read = &f[..end];
+        let ln = read.lines().count() + 1;
+        let lp = read.rfind('\n').map(|p|end -p).unwrap_or(end);
+        println!("error on line {ln} position {lp}");
+        */
         return Err(Error::FileSrc(e,comp,comp+pos));
       }
     };
 
-    match push_token(&mut vm,tk) {
+    match push_token(vm,tk) {
       Ok(()) => (),
       Err(e) => {
         let (_,comp,pos) = lx.done();
+        /*
+        let end = comp+pos;
+        let read = &f[..end];
+        let ln = read.lines().count() + 1;
+        let lp = read.rfind('\n').map(|p|end -p).unwrap_or(end);
+        println!("error on line {ln} position {lp}");
+        */
+
         return Err(Error::FileExec(e,comp,comp+pos));
       }
     };
   };
 
-  let vf = th.into_function().map_err(Error::FileEnd)?;
-
-  Ok(vf)
+  Ok(())
 }
 
-fn push_token(vm:&mut Thread,tk:T) -> Result<(),VMErr> {
+fn push_token<S:Fort>(vm:&mut Thread<S>,tk:T) -> Result<(),VMErr> {
   let res = match tk {
     T::OpenParen => {
       vm.start_def();
@@ -105,28 +133,32 @@ fn push_token(vm:&mut Thread,tk:T) -> Result<(),VMErr> {
     T::CloseBracket => vm.end_list(),
 
     T::True => { 
-      vm.push_val(V::B(true));
+      vm.push(V::B(true));
       Ok(())
     },
     T::False => {
-      vm.push_val(V::B(false)); 
+      vm.push(V::B(false)); 
       Ok(())
     },
     T::I(i) =>{ 
-      vm.push_val(V::I(i)); 
+      vm.push(V::I(i)); 
       Ok(())
     },
     T::Z(z) =>{ 
-      vm.push_val(V::Z(z));
+      vm.push(V::Z(z));
       Ok(())
     },
     T::Str(s) => {
-      vm.push_val(V::Str(s.into()));
+      vm.push(V::Str(s.into()));
       Ok(())
     }
 
     T::Word(nm) => vm.word(nm),
-    T::QWord(nm) => vm.quote(nm)
+    T::QWord(nm) => vm.quote(nm),
+    T::Sym(nm) => {
+      vm.push(V::Sym(nm.into()));
+      Ok(())
+    },
   };
 
   if res.is_err() {
@@ -141,7 +173,6 @@ pub enum Error {
   Fs(std::io::Error),
   FileSrc(TokErr,usize,usize),
   FileExec(VMErr,usize,usize),
-  FileEnd(VMErr),
   Scanner(TokErr),
   Exec(VMErr)
 }
@@ -151,7 +182,6 @@ impl std::fmt::Display for Error {
     match self {
       Self::FileSrc(x,s,e) => write!(f,"scan error in file pos: {s}-{e} : {x}"),
       Self::FileExec(x,s,e) => write!(f,"error executing tokens in file pos {s}-{e} : {x}"),
-      Self::FileEnd(x) => write!(f,"error executing tokens at end of file: {x}"),
       Self::Scanner(e) => write!(f,"error while scanning tokens {e}"),
       Self::Exec(e) => write!(f,"error in vm execution {e}"),
       Self::Fs(e)=> write!(f,"error reading file: {e}"),

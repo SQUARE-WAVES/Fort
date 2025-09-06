@@ -1,21 +1,42 @@
 use std::sync::Arc;
 use super::{
   V,
+  Fort,
+  TypeTag,
   F,
   Thread,
   Error,
-  p_err
+  tpop,
+  param
 };
 
-pub fn map(th:&mut Thread) -> Result<(),Error> {
-  let stk = th.stk();
-  let proc = stk.tpop::<F>().map_err(p_err("proc"))?;
-  let lst = stk.tpop::<Arc<[V]>>().map_err(p_err("list"))?;
+pub fn call<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
+  let p = param(th,"process")?;
+
+  match p {
+    V::F(proc) => {
+      proc.run(th)?;
+    },
+    V::Sym(nm) => {
+      let proc = th.lookup(&nm).map_err(|_|Error::Internal("symbol not defined"))?;
+      proc.clone().run(th)?;
+    },
+    other => { 
+      Err(Error::PType("process","symbol",other.tag()))?;
+    }
+  };
+
+  Ok(())
+}
+
+pub fn map<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
+  let proc : F<S> = tpop(th,"proc")?;
+  let lst : Arc<[V<S>]> = tpop(th,"list")?;
   
   th.start_list();
 
   for val in lst.iter() {
-    th.push_val(val.clone());
+    th.push(val.clone());
     proc.run(th)?;
   };
 
@@ -24,20 +45,11 @@ pub fn map(th:&mut Thread) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn call(th:&mut Thread) -> Result<(),Error> {
-  let stk = th.stk();
-  let proc = stk.tpop::<F>().map_err(p_err("process"))?;
-  proc.run(th)?;
-  Ok(())
-}
-
-
 //the "if" function
-pub fn cond(th:&mut Thread) -> Result<(),Error> {
-  let stk = th.stk();
-  let else_proc = stk.tpop::<F>().map_err(p_err("else_proc"))?;
-  let true_proc = stk.tpop::<F>().map_err(p_err("true_proc"))?;
-  let val = stk.tpop::<bool>().map_err(p_err("truth val"))?;
+pub fn cond<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
+  let else_proc : F<S> = tpop(th,"else_proc")?;
+  let true_proc : F<S> = tpop(th,"true_proc")?;
+  let val :bool = tpop(th,"truth val")?;
 
   if val {
     true_proc.run(th)?;
@@ -49,20 +61,17 @@ pub fn cond(th:&mut Thread) -> Result<(),Error> {
   Ok(())
 }
 
-pub fn while_loop(th:&mut Thread) -> Result<(),Error> {
-  let body = th.stk().tpop::<F>().map_err(p_err("loop body"))?;
-  let test = th.stk().tpop::<F>().map_err(p_err("loop test"))?;
+pub fn while_loop<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
+  let body : F<S> = tpop(th,"loop_body")?;
+  let test : F<S> = tpop(th,"loop_test")?;
   
   loop {
-    {
-      let stk = th.stk();
-      let v = stk.pop().expect("couldn't dup");
-      th.push_val(v.clone());
-      th.push_val(v);
-    }
+    let v = th.popv().ok_or(Error::Internal("couldn't dup body output in while loop"))?;
+    th.push(v.clone());
+    th.push(v);
 
     test.run(th)?;
-    let tr = th.stk().tpop::<bool>().map_err(p_err("loop test variable"))?;
+    let tr : bool = tpop(th,"loop test variable")?;
     if tr {
       body.run(th)?;
     }

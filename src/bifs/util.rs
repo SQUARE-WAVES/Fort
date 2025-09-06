@@ -1,12 +1,14 @@
 use super::{
   Thread,
+  Fort,
   Error,
-  p_err,
   F,
-  V
+  V,
+  Txt,
+  tpop
 };
 
-fn print_vs(vs:&[V]) {
+fn print_vs<S:Fort>(vs:&[V<S>]) {
   if vs.is_empty() {
     println!("()");
   }
@@ -19,9 +21,8 @@ fn print_vs(vs:&[V]) {
   }
 }
 
-pub fn doc(th:&mut Thread) -> Result<(),Error> {
-  let stk=th.stk();
-  let f = stk.tpop::<F>().map_err(p_err("proc"))?;
+pub fn doc<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
+  let f : F<S> = tpop(th,"proc")?;
   match &f {
     F::Bif(nm,d,_) => {
       println!("[[ {nm} ]]");
@@ -38,25 +39,23 @@ pub fn doc(th:&mut Thread) -> Result<(),Error> {
   }
   println!("-------------------");
 
-  stk.push(f);
+  th.push(f);
   Ok(())
 }
 
-pub fn print(th:&mut Thread) -> Result<(),Error> {
+pub fn print<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
   th.print();
   Ok(())
 }
 
-pub fn do_file(th:&mut Thread) -> Result<(),Error> {
-  use std::sync::Arc;
-  let path = th.stk().tpop::<Arc<str>>().map_err(p_err("path"))?;
+pub fn do_file<S:Fort>(th:&mut Thread<S>) -> Result<(),Error> {
+  let path : Txt = tpop(th,"path")?;
   let path : &str = &path; //gotta do this for the as_ref trait to kick in
-  let d = th.dict();
-  match crate::parser::load_file(path,d) {
-    Ok(f) => f.run(th),
+  match crate::parser::load_file(path,th) {
+    Ok(_) => Ok(()),
     Err(e) => {
       println!("--file load error--");
-      println!("{e}");
+      println!("{e:?}");
       Err(Error::Internal("file load error"))
     }
   }
