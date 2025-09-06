@@ -11,12 +11,15 @@ ways to arrange the kinda stuff you need to make a system like this. It will pro
 ways as I work with it a bit.
 
 # how do I build it?
-just use cargo, there isn't anything special or interesting yet.
-
-# how does it work?
-for now it just runs a hardcoded string in the main function. It's still new
+Use cargo to build things. Right now this builds as a library, so to run stuff you will need to run the example
+```
+cargo run --example repl
+```
+this will drop you into a no frills repl to play around (though there isn't much to play with yet)
 
 # how about the language itsef?
+*WARNING* this stuff changes quickly so this likely won't be up to date but I'll try to make sure it's generally right
+
 so it's a "concatenative / stack-based / forth-like" language, if you don't know much about those they look weird at first
 I think these kinds of langs are cool and fun: [this will be a post or something explaining why at some point](https://en.wikipedia.org/wiki/Forth_(programming_language))
 and I think they help teach a lot of concepts in a simple way.
@@ -30,29 +33,39 @@ lists are in square brackets like [1 3 [4 5] 6 6]
 
 functions are a bit weird compared to classic forth, they are "first-class" meaning they can be put on the stack and
 used as arguments or returned from other functions, things like that. they can also be anonymous, or named, either way
-is fine. They are defined with parens like: (1 +) would make an anonymous function that adds one to whatever is below
-it. To name them, put ::<name> after the definiton like so: (1 +)::inc. to call them, just type the word they define.
-so 1 inc would give you 2 back, to refer to them without calling put a ` in front of the word, like `inc. functions
-on the stack can be called with the built in function "call" so 1 (1 +) call, would be the same as 1 inc.
+is fine. 
 
-functions have scopes, meaning you can define stuff inside a function, and then that definition won't carry outside. This isn't
-that useful right now, as there isn't a great way to refer to the args inside a function definition.
+They are defined with parens like: (1 +) would make an anonymous function that adds one to whatever is below
+it. To name them, put ::<name> after the definiton like so: (1 +)::inc. to call them, just type the word they define.
+so 1 inc would give you 2 back, to refer to them without calling put a ` in front of the word, like `inc this will put the
+function value on the stack.
+
+function values on the stack can be called with the built in function "!" so 1 (1 +) !, would be the same as 1 inc.
+
+```
+( (1 +)::inc inc map)::bump_list
+```
+would define a function called "bump_list" in the global scope, but not a function called inc.
+but you can mess around with that using symbols. Symbols are made by putting ' in front of a word. Like 'inc.
+when you use the ! function with a symbol it looks up that word in the current scope and calls that. This means you can
+alter the behavior of a function after the fact and do weird meta stuff. For example:
+```
+(1 +)::inc
+(('inc !) map)::bump_list
+
+[1 2 3 4 5] bump_list
+[1 2 3 4 5] ( (4 +)::inc bump_list) ) !
+```
+
+will end you up with [2 3 4 5 6] and [5 6 7 8 9] on the stack
 
 # what are the long term goals?
 Mostly to have fun! The computer is for fun! Serious business? BOO!
-But I think I'd like to make this into a sorta toolkit, for embedding into other projects, just to have a simple way of making
-interactive stuff.
+The goal right now is to make this like a toolkit for embedding into other programs to give them an interactive component
+like lua but it's a weird home rolled language.
 
 # what's there to work on in the short term?
 oh boy lots of stuff:
 
-right now the regular stack printing can't really handle function names, the BIFs don't store their names in an accessable way
-and neither do defs, also it's probably good to come up with a better way to print anonymous functions.
-
-it would also be good to be able to get help text and stuff like that for functions.
-
-I'd like to come up with some good utilites for extracting args for BIFs, because BIFs just get the whole stack to mess with
-however they like, they can do screwy things, like pop off a bunch of args and then fail without returning those args.
-Since in the long term I want to make this embeddable users are gonna need to be able to add new BIFs and things like that.
-
-Because of all the messing around with BIF stuff the error handling is kind of a mess, I need to clean it up
+presently I'm working on simplifying the core stack machine down into parts that can be selectively added on and changed
+so that it's easier to make and try out new language features
